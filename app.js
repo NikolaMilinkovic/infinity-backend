@@ -66,10 +66,6 @@ async function addUserOnStartup(username, plainPassword) {
 
       await newUser.save();
 
-      const token = authModule.generateToken(newUser._id, 10);
-      newUser.token = token;
-      await newUser.save();
-
       console.log(`> User [${newUser.username}] created`);
       console.log(`> Token [${newUser.token}]`);
     } else {
@@ -77,8 +73,6 @@ async function addUserOnStartup(username, plainPassword) {
     }
   } catch (error) {
     console.error('> Error creating user:', error);
-  } finally {
-    await mongoose.connection.close();
   }
 }
 
@@ -94,8 +88,10 @@ app.post('/login', authModule.login);
 app.use(authModule.authenticateJWT);
 // =====================[ PROTECTED ROUTES ]=====================
 
-
-// =====================[ \UNPROTECTED ROUTES ]=====================
+app.get('/test_protected', (req, res) => {
+  res.json({ message: 'You are authorized to see this message!' });
+});
+// =====================[ \PROTECTED ROUTES ]=====================
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
