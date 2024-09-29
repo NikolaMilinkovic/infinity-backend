@@ -1,1 +1,10 @@
-GET http://localhost:3000/posts
+### Simulate Login Request
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "username": "Helvos",
+  "password": "jajesamcarsveta2"
+}
+
+### Simulate

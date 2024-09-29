@@ -28,6 +28,8 @@ module.exports = function() {
   async function login(req, res) {
     try {
       const { username, password } = req.body;
+      if(!username) return res.status(400).json({ message: 'Please provide a username' });
+      if(!password) return res.status(400).json({ message: 'Please provide a username' });
       const user = await User.findOne({ username: username });
       
       if (!user) {
@@ -44,7 +46,7 @@ module.exports = function() {
       const token = jwt.sign(
         { userId: user._id },
         process.env.JWT_SECRET,
-        { expiresIn: '1y' }
+        { expiresIn: '10y' }
       );
 
       res.json({ message: 'Login successful', token });
@@ -60,9 +62,18 @@ module.exports = function() {
     app.use(passport.initialize());
   }
 
+  function generateToken(id, years_duration = 10){
+    const token = jwt.sign(
+      { userId: id },
+      process.env.JWT_SECRET,
+      { expiresIn: `${years_duration}y` })
+    return token;
+  }
+
   return {
     login,
     authenticateJWT,
-    initializeAuth
+    initializeAuth,
+    generateToken
   };
 };

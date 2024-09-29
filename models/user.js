@@ -5,7 +5,7 @@ const UserSchema = new Schema({
   username: { type:String, required: [true, 'Please enter a valid username'], unique: [true, 'Username already registered'] },
   password: { type:String, required: [true, 'Please enter a valid password'] },
   role: { type:String, requred: [true, 'Please enter a valid role'], default: 'admin' },
-  token: { type:String, required: [true, 'Please provide a valid token'] }
+  token: { type:String, required: [false, 'Please provide a valid token'] }
 });
 
 module.exports = mongoose.model("User", UserSchema);

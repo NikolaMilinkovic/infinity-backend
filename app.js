@@ -6,9 +6,8 @@ const logger = require('morgan');
 const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
-
-const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
+const User = require('./models/user');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 // ===============[ CORS Options ]=============== //
@@ -52,6 +51,41 @@ if(database){
 }
 database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
+
+async function addUserOnStartup(username, plainPassword) {
+  try {
+    const existingUser = await User.findOne({ username });
+
+    if (!existingUser) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(plainPassword, salt);
+      const newUser = new User({
+        username,
+        password: hashedPassword,
+      });
+
+      await newUser.save();
+
+      const token = authModule.generateToken(newUser._id, 10);
+      newUser.token = token;
+      await newUser.save();
+
+      console.log(`> User [${newUser.username}] created`);
+      console.log(`> Token [${newUser.token}]`);
+    } else {
+      console.log(`> User [${username}] already exists`);
+    }
+  } catch (error) {
+    console.error('> Error creating user:', error);
+  } finally {
+    await mongoose.connection.close();
+  }
+}
+
+
+// Example usage
+// addUserOnStartup('Helvos', 'jajesamcarsveta2');
+
 
 
 // =====================[ UNPROTECTED ROUTES ]=====================
