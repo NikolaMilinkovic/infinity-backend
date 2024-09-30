@@ -6,8 +6,7 @@ const logger = require('morgan');
 const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
-const User = require('./models/user');
-const bcrypt = require('bcryptjs');
+const authModule = require('./middleware/authMiddleware')();
 
 const app = express();
 // ===============[ CORS Options ]=============== //
@@ -38,7 +37,6 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // =====================[ AUTH ]=====================
-const authModule = require('./authMiddleware')();
 authModule.initializeAuth(app);
 // =====================[ \AUTH ]=====================
 
@@ -52,32 +50,9 @@ if(database){
 database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
-async function addUserOnStartup(username, plainPassword) {
-  try {
-    const existingUser = await User.findOne({ username });
 
-    if (!existingUser) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(plainPassword, salt);
-      const newUser = new User({
-        username,
-        password: hashedPassword,
-      });
-
-      await newUser.save();
-
-      console.log(`> User [${newUser.username}] created`);
-      console.log(`> Token [${newUser.token}]`);
-    } else {
-      console.log(`> User [${username}] already exists`);
-    }
-  } catch (error) {
-    console.error('> Error creating user:', error);
-  }
-}
-
-
-// Example usage
+// Example usage of adding new user on startup
+// const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('Helvos', 'jajesamcarsveta2');
 
 
@@ -85,28 +60,20 @@ async function addUserOnStartup(username, plainPassword) {
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // =====================[ \UNPROTECTED ROUTES ]=====================
+
+
+// =====================[ PROTECTED ROUTERS ]======================
 app.use(authModule.authenticateJWT);
-// =====================[ PROTECTED ROUTES ]=====================
 
-app.get('/test_protected', (req, res) => {
-  res.json({ message: 'You are authorized to see this message!' });
-});
-// =====================[ \PROTECTED ROUTES ]=====================
+const productsRouter = require('./routers/products');
+app.use('/products', productsRouter);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
-});
+// =====================[ \PROTECTED ROUTERS ]=====================
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
-});
+// =====================[ ERROR HANDLERS ]======================
+const errorHandler = require('./controllers/errorController');
+app.use(errorHandler);
+// =====================[ \ERROR HANDLERS ]=====================
 
 module.exports = app;

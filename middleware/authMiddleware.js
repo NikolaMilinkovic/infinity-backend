@@ -3,8 +3,9 @@ const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const User = require('./models/user');
+const User = require('../schemas/user');
 require('dotenv').config();
+const CustomError = require('../utils/CustomError');
 
 module.exports = function() {
   const opts = {
@@ -25,21 +26,23 @@ module.exports = function() {
     }
   }));
 
-  async function login(req, res) {
+  async function login(req, res, next) {
     try {
       const { username, password } = req.body;
-      if(!username) return res.status(400).json({ message: 'Please provide a username' });
-      if(!password) return res.status(400).json({ message: 'Please provide a username' });
+      // if(!username) return res.status(400).json({ message: 'Please provide a username' });
+      // if(!password) return res.status(400).json({ message: 'Please provide a password' });
+      if (!username) return next(new CustomError('Please provide a username', 400));
+      if (!password) return next(new CustomError('Please provide a password', 400));
       const user = await User.findOne({ username: username });
       
       if (!user) {
-        return res.status(400).json({ message: 'User not found' });
+        return next(new CustomError('User not found, please check your username and try again.', 400));
       }
       
       const isMatch = await bcrypt.compare(password, user.password);
       
       if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid credentials' });
+        return next(new CustomError('Invalid credentials.', 400));
       }
 
       // Generate JWT token
@@ -52,7 +55,7 @@ module.exports = function() {
       res.json({ message: 'Login successful', token });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: 'Server error' });
+      return next(new CustomError("Server error, it's time to call Nick..", 500));
     }
   }
 
