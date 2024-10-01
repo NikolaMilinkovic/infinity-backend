@@ -1,6 +1,5 @@
 const User = require('../schemas/user')
 const bcrypt = require('bcryptjs');
-const CustomError = require('./CustomError');
 
 /**
  * Adds a user to the database if they do not already exist.

@@ -8,5 +8,5 @@ Content-Type: application/json
 }
 
 ### Use the token obtained from login to access protected route
-GET http://localhost:3000/test_protected
+GET http://localhost:3000/products
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmY5ZDBjNWQzYWI0ZTJiZjUwODI3YTYiLCJpYXQiOjE3Mjc2NDgxMTIsImV4cCI6MjA0MzIyNDExMn0.CIdTzwhkFiGUr467HBZvyIMfSPUfpFOwGNdrLz_NUks

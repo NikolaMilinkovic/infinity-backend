@@ -13,6 +13,7 @@ module.exports = function() {
     secretOrKey: process.env.JWT_SECRET,
   };
 
+  // Find user based on userId from the token
   passport.use(new JwtStrategy(opts, async (jwt_payload, done) => {
     try {
       const user = await User.findById(jwt_payload.userId);
@@ -26,33 +27,34 @@ module.exports = function() {
     }
   }));
 
+  /**
+   * Authenticates user basd on username & password
+   * Generates new token and returns it to the client
+   * @returns {
+   *  token: string
+   *  message: string
+   * }
+   */
   async function login(req, res, next) {
     try {
       const { username, password } = req.body;
-      // if(!username) return res.status(400).json({ message: 'Please provide a username' });
-      // if(!password) return res.status(400).json({ message: 'Please provide a password' });
       if (!username) return next(new CustomError('Please provide a username', 400));
       if (!password) return next(new CustomError('Please provide a password', 400));
-      const user = await User.findOne({ username: username });
       
+      const user = await User.findOne({ username: username });
       if (!user) {
         return next(new CustomError('User not found, please check your username and try again.', 400));
       }
       
       const isMatch = await bcrypt.compare(password, user.password);
-      
       if (!isMatch) {
         return next(new CustomError('Invalid credentials.', 400));
       }
 
       // Generate JWT token
-      const token = jwt.sign(
-        { userId: user._id },
-        process.env.JWT_SECRET,
-        { expiresIn: '10y' }
-      );
-
+      const token = generateToken(user._id, 10);
       res.json({ message: 'Login successful', token });
+
     } catch (error) {
       console.error(error);
       return next(new CustomError("Server error, it's time to call Nick..", 500));
@@ -65,6 +67,12 @@ module.exports = function() {
     app.use(passport.initialize());
   }
 
+  /**
+   * Generates token based on provided ID and token duration
+   * @param {string} id 
+   * @param {number} years_duration 
+   * @returns {string}
+   */
   function generateToken(id, years_duration = 10){
     const token = jwt.sign(
       { userId: id },

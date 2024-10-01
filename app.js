@@ -1,4 +1,3 @@
-const createError = require('http-errors');
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
@@ -7,6 +6,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
+const { getSocketInstance } = require('./utils/socket');
 
 const app = express();
 // ===============[ CORS Options ]=============== //
@@ -64,9 +64,13 @@ app.post('/login', authModule.login);
 
 // =====================[ PROTECTED ROUTERS ]======================
 app.use(authModule.authenticateJWT);
+const io = getSocketInstance();
 
 const productsRouter = require('./routers/products');
 app.use('/products', productsRouter);
+
+const testCounterRouter = require('./routers/testCounter');
+app.use('/testCounter', testCounterRouter);
 
 // =====================[ \PROTECTED ROUTERS ]=====================
 
