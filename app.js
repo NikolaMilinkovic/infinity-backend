@@ -69,6 +69,9 @@ const io = getSocketInstance();
 const productsRouter = require('./routers/products');
 app.use('/products', productsRouter);
 
+const colorsRouter = require('./routers/colors');
+app.use('/colors', colorsRouter);
+
 const testCounterRouter = require('./routers/testCounter');
 app.use('/testCounter', testCounterRouter);
 
