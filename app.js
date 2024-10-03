@@ -53,7 +53,7 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
-// addUserOnStartup('Helvos', 'jajesamcarsveta2');
+// addUserOnStartup('helvos', 'helvos');
 
 
 

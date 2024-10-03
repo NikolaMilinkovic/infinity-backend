@@ -38,26 +38,26 @@ module.exports = function() {
   async function login(req, res, next) {
     try {
       const { username, password } = req.body;
-      if (!username) return next(new CustomError('Please provide a username', 400));
-      if (!password) return next(new CustomError('Please provide a password', 400));
+      if (!username) return next(new CustomError('Unesite vas username.', 400));
+      if (!password) return next(new CustomError('Unesite vasu sifru.', 400));
       
       const user = await User.findOne({ username: username });
       if (!user) {
-        return next(new CustomError('User not found, please check your username and try again.', 400));
+        return next(new CustomError('Korisničko ime nije pronađeno, molimo proverite korisničko ime i probajte opet.', 400));
       }
       
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return next(new CustomError('Invalid credentials.', 400));
+        return next(new CustomError('Proverite korisničko ime ili šifru i probajte opet.', 400));
       }
 
       // Generate JWT token
       const token = generateToken(user._id, 10);
-      res.json({ message: 'Login successful', token });
+      res.json({ message: 'Uspešno logovanje na sistem.', token });
 
     } catch (error) {
       console.error(error);
-      return next(new CustomError("Server error, it's time to call Nick..", 500));
+      return next(new CustomError("Uh oh.. Server error.. Vreme je da pozovete Milija..", 500));
     }
   }
 

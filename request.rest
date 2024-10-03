@@ -34,6 +34,6 @@ Content-Type: application/json
 }
 
 ### Test removing a color
-DELETE http://localhost:3000/colors/66fd282da23525624f63ebfd
+DELETE http://localhost:3000/colors/66fd5e6c6498eb9538921354
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmY5ZDBjNWQzYWI0ZTJiZjUwODI3YTYiLCJpYXQiOjE3Mjc2NDgxMTIsImV4cCI6MjA0MzIyNDExMn0.CIdTzwhkFiGUr467HBZvyIMfSPUfpFOwGNdrLz_NUks
 Content-Type: application/json

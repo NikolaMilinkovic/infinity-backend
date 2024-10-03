@@ -1,5 +1,5 @@
 const express = require('express');
-const { getColors, addColor, deleteColor } = require('../controllers/colorsController');
+const { getColors, addColor, deleteColor, updateColor } = require('../controllers/colorsController');
 const router = new express.Router();
 
 router
@@ -10,6 +10,7 @@ router
 router
   .route("/:id")
   .delete(deleteColor)
+  .patch(updateColor)
 
 
 module.exports = router;
