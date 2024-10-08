@@ -69,7 +69,26 @@ exports.deleteCategory = async(req, res, next) => {
 // UPDATE
 exports.updateCategory = async(req, res, next) => {
   try{
-    res.status(200).json(categories);
+    const { name } = req.body;
+    const { id } = req.params;
+    const updatedCategory = await Category.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true }
+    );
+
+    // Handle socket update
+    const io = getSocketInstance();
+    if (io) {
+      console.log('> Emitting an update to all devices for category update: ', updatedCategory.name);
+      io.emit('categoryUpdated', updatedCategory);
+    }
+
+    // Send a response
+    res.status(200).json({
+      message: `Kategorija uspesno sačuvana kao ${name}`,
+      category: updatedCategory,
+    });    
   } catch(error){
     console.error(error);
     return next(new CustomError('There was an error while updating category', 500));

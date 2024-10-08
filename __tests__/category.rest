@@ -23,11 +23,11 @@ Content-Type: application/json
 
 {
   "category": {
-    "name": "Haljina"
+    "name": "Torbica"
   }
 }
 
 ### Test removing a category
-DELETE http://localhost:3000/categories/67051940d14291824de55370
+DELETE http://localhost:3000/categories/67053218261eee01749028fc
 Authorization: Bearer {{token}}
 Content-Type: application/json
