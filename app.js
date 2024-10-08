@@ -75,6 +75,8 @@ app.use('/colors', colorsRouter);
 const testCounterRouter = require('./routers/testCounter');
 app.use('/testCounter', testCounterRouter);
 
+const categoriesRouter = require('./routers/category');
+app.use('/categories', categoriesRouter);
 // =====================[ \PROTECTED ROUTERS ]=====================
 
 

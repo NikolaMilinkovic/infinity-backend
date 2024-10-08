@@ -1,0 +1,40 @@
+
+### Token reference
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmZkYjA4YzM2N2QzZmYxOGRkZmM2YmYiLCJpYXQiOjE3MjgzODgyMzEsImV4cCI6MjA0Mzk2NDIzMX0.9_ylHmcm14Mpj5hbe1n2mLr0WjAvd3t6WaWbCl6i6Kk
+
+### Simulate Login Request
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "username": "helvos",
+  "password": "helvos"
+}
+
+### Test getting all colors
+GET http://localhost:3000/colors
+Authorization: Bearer {{token}}
+
+### Test adding new color
+POST http://localhost:3000/colors
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "color": "Green",
+  "colorCode": "",
+  "sizes": [
+    { "size": "XS", "stock": 0 },
+    { "size": "S", "stock": 0 },
+    { "size": "M", "stock": 0 },
+    { "size": "L", "stock": 0 },
+    { "size": "XL", "stock": 0 },
+    { "size": "UNI", "stock": 0 }
+  ]
+}
+
+### Test removing a color
+DELETE http://localhost:3000/colors/66fd5e6c6498eb9538921354
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
