@@ -4,6 +4,7 @@ const { getSocketInstance } = require('../utils/socket');
 
 
 
+// GET ALL COLORS
 exports.getColors = async(req, res, next) => {
   try{
     const colors = await Color.find();
@@ -14,6 +15,7 @@ exports.getColors = async(req, res, next) => {
   }
 }
 
+// ADD NEW COLOR
 exports.addColor = async(req, res, next) => {
   try{
     const { color } = req.body;
@@ -40,6 +42,7 @@ exports.addColor = async(req, res, next) => {
   }
 }
 
+// UPDATE A COLOR
 exports.updateColor = async(req, res, next) => {
   try{
     const { name, colorCode } = req.body;
@@ -69,6 +72,7 @@ exports.updateColor = async(req, res, next) => {
   }
 }
 
+// DELETE A COLOR
 exports.deleteColor = async(req, res, next) => {
   try{
     const { id } = req.params;

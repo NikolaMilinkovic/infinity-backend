@@ -12,6 +12,15 @@ Content-Type: application/json
 
 #=#=#=#=#=#=[ DRESSES ]=#=#=#=#=#=#
 
-### Simulate getting all dressses
+### Simulate getting all active dressses
 GET http://localhost:3000/products/active-dresses
 Authorization: Bearer {{token}}
+
+### Simulate getting all inactive dressses
+GET http://localhost:3000/products/inactive-dresses
+Authorization: Bearer {{token}}
+
+### Test removing an active dress
+DELETE http://localhost:3000/products/active-dresses/6709339eb9bd973124b71fb4
+Authorization: Bearer {{token}}
+Content-Type: application/json

@@ -1,7 +1,7 @@
 const express = require('express');
 
 const { getProducts } = require('../controllers/productsController')
-const { addDress, getAllActiveDresses } = require('../controllers/different_products_cotrollers/dressesController');
+const { addDress, getAllActiveDresses, getAllInactiveDresses, deleteDress } = require('../controllers/different_products_cotrollers/dressesController');
 const router = new express.Router();
 
 router
@@ -16,6 +16,15 @@ router
 router
   .route("/active-dresses")
   .get(getAllActiveDresses)
+router
+  .route("/active-dresses/:id")
+  .delete(deleteDress)
+router
+  .route("/inactive-dresses")
+  .get(getAllInactiveDresses)
+router
+  .route("/inactive-dresses/:id")
+  .delete(deleteDress)
 // =======================[ \DRESSES ]=======================
 
 // =======================[  ]=======================
