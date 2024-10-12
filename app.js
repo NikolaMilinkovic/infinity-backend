@@ -32,7 +32,7 @@ app.set('view engine', 'pug');
 
 app.use(logger('dev'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -50,12 +50,9 @@ if(database){
 database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
-
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('helvos', 'helvos');
-
-
 
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
@@ -71,9 +68,6 @@ app.use('/products', productsRouter);
 
 const colorsRouter = require('./routers/colors');
 app.use('/colors', colorsRouter);
-
-const testCounterRouter = require('./routers/testCounter');
-app.use('/testCounter', testCounterRouter);
 
 const categoriesRouter = require('./routers/category');
 app.use('/categories', categoriesRouter);

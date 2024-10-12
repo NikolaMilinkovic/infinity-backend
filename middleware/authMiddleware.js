@@ -56,7 +56,7 @@ module.exports = function() {
       res.json({ message: 'Uspešno logovanje na sistem.', token });
 
     } catch (error) {
-      console.error(error);
+      betterErrorLog('> Error logging in a user:', error);
       return next(new CustomError("Uh oh.. Server error.. Vreme je da pozovete Milija..", 500));
     }
   }

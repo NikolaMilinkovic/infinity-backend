@@ -9,6 +9,7 @@ exports.getProducts = (req, res, next) => {
   res.status(200).json(products);
 };
 
+// ADD new product
 exports.addProduct = (req, res, next) => {
   try{
     const { name, category, price, colors } = req.body;
@@ -18,7 +19,7 @@ exports.addProduct = (req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    console.error(error)
+    betterErrorLog('> Error adding a new product:', error);
     return next(new CustomError('Doslo je do problema prilikom dodavanja proizvoda', statusCode));
   }
   res.status(200).json({ message: 'Product added' })

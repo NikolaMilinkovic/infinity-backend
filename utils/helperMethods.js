@@ -25,7 +25,7 @@ async function addUserOnStartup(username, plainPassword) {
       console.log(`> User [${username}] already exists`);
     }
   } catch (error) {
-    console.error('> Error creating user:', error);
+    betterErrorLog('> Error creating a user:', error);
   }
 }
 

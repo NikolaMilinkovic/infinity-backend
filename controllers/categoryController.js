@@ -10,7 +10,7 @@ exports.getCategories = async(req, res, next) => {
     const categories = await Category.find()
     res.status(200).json(categories);
   } catch(error){
-    console.error(error);
+    betterErrorLog('> Error getting all categories:', error);
     return next(new CustomError('There was an error while fetching categories', 500));
   }
 }
@@ -36,7 +36,7 @@ exports.addCategory = async(req, res, next) => {
       return next(new CustomError(`Kategorija ${error.keyValue.name} vec postoji`, 409));
     }
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error adding a category:', error);
     return next(new CustomError('Doslo je do problema prilikom dodavanja kategorije', statusCode));
   }
 }
@@ -61,7 +61,7 @@ exports.deleteCategory = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error deleting a category:', error);
     return next(new CustomError('Doslo je do problema prilikom brisanja kategorije', statusCode));
   }
 }
@@ -90,7 +90,7 @@ exports.updateCategory = async(req, res, next) => {
       category: updatedCategory,
     });    
   } catch(error){
-    console.error(error);
+    betterErrorLog('> Error updating a category:', error);
     return next(new CustomError('There was an error while updating category', 500));
   }
 }
