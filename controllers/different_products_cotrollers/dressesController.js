@@ -3,7 +3,6 @@ const Dress = require("../../schemas/dress");
 const { getSocketInstance } = require('../../utils/socket');
 const DressColor = require("../../schemas/dressColor");
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/s3Methods");
-const sharp = require('sharp');
 const { betterErrorLog } = require("../../utils/logMethods");
 
 // ADD NEW DRESS
@@ -14,6 +13,7 @@ exports.addDress = async (req, res, next) => {
     if (!name || !category || !price || colors.length === 0 || !req.file)
       return next(new CustomError('Vrednost za ime, kategoriju, cenu, boju ili sliku nije pronađena', 404));
 
+    // Upload to S3
     if (req.file) {
       image = await uploadMediaToS3(req.file, next);
     }
@@ -40,9 +40,10 @@ exports.addDress = async (req, res, next) => {
     if(io) {
       console.log('> Emitting an update to all devices for new active dress: ', newDress.name);
       io.emit('activeDressAdded', newDress);
+      io.emit('activeProductAdded', newDress);
     }
 
-    res.status(200).json({ message: `Haljina sa imenom ${name} uspešno dodata` });
+    res.status(200).json({ message: `Haljina sa imenom ${name} je uspešno dodata` });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error Adding a dress:', error);
@@ -59,7 +60,7 @@ exports.getAllActiveDresses = async(req, res, next) => {
   } catch(error){
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error getting active dresses:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o haljinama', statusCode));  
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o aktivnim haljinama', statusCode));  
   }
 };
 
@@ -72,7 +73,7 @@ exports.getAllInactiveDresses = async(req, res, next) => {
   } catch(error){
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error getting inactive dresses:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o haljinama', statusCode));    
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o neaktivnim haljinama', statusCode));    
   }
 };
 
@@ -106,10 +107,12 @@ exports.deleteDress = async(req, res, next) => {
         console.log('> Deleting an active dress');
         console.log('> Emiting an update to all devices for active dress deletion: ', deletedDress.name);
         io.emit('activeDressRemoved', deletedDress._id);
+        io.emit('activeProductRemoved', deletedDress._id);
       } else {
         console.log('> Deleting an inactive dress');
         console.log('> Emiting an update to all devices for inactive dress deletion: ', deletedDress.name);
         io.emit('inactiveDressRemoved', deletedDress._id);
+        io.emit('inactiveProductRemoved', deletedDress._id);
       }
     }
 

@@ -1,7 +1,19 @@
 const express = require('express');
 
 const { getProducts } = require('../controllers/productsController')
-const { addDress, getAllActiveDresses, getAllInactiveDresses, deleteDress } = require('../controllers/different_products_cotrollers/dressesController');
+const { 
+  addDress, 
+  getAllActiveDresses, 
+  getAllInactiveDresses, 
+  deleteDress 
+} = require('../controllers/different_products_cotrollers/dressesController');
+
+
+const {
+  addPurse,
+  getAllActivePurses,
+  getAllInactivePurses,
+} = require('../controllers/different_products_cotrollers/pursesController');
 const router = new express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -22,13 +34,23 @@ router
   .route("/active-dresses")
   .get(getAllActiveDresses)
 router
-  .route("/active-dresses/:id")
-  .delete(deleteDress)
-router
   .route("/inactive-dresses")
   .get(getAllInactiveDresses)
-router
-  .route("/inactive-dresses/:id")
-  .delete(deleteDress)
 // =======================[ \DRESSES ]=======================
+
+
+// =======================[ PURSES ]=======================
+router
+  .route("/purse/:id")
+  // .delete(deletePurse)
+router
+  .route("/purse")
+  .post(upload.single('image'), addPurse);
+router
+  .route("/active-purses")
+  .get(getAllActivePurses)
+router
+  .route("/inactive-purses")
+  .get(getAllInactivePurses)
+// =======================[ \PURSES ]=======================
 module.exports = router;
