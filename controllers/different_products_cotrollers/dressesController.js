@@ -4,6 +4,7 @@ const { getSocketInstance } = require('../../utils/socket');
 const DressColor = require("../../schemas/dressColor");
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/s3Methods");
 const sharp = require('sharp');
+const { betterErrorLog } = require("../../utils/logMethods");
 
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
@@ -14,7 +15,6 @@ exports.addDress = async (req, res, next) => {
       return next(new CustomError('Vrednost za ime, kategoriju, cenu, boju ili sliku nije pronađena', 404));
 
     if (req.file) {
-      console.log('File received:', req.file);
       image = await uploadMediaToS3(req.file, next);
     }
 
@@ -36,7 +36,6 @@ exports.addDress = async (req, res, next) => {
     });
 
     const result = await newDress.save();
-    
     const io = getSocketInstance();
     if(io) {
       console.log('> Emitting an update to all devices for new active dress: ', newDress.name);

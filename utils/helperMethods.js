@@ -1,6 +1,6 @@
 const User = require('../schemas/user')
 const bcrypt = require('bcryptjs');
-
+const { betterErrorLog } = require('./logMethods');
 /**
  * Adds a user to the database if they do not already exist.
  * @param {String} username - The username for the new user.

@@ -1,4 +1,5 @@
 const CustomError = require("../utils/CustomError");
+const { betterErrorLog } = require("../utils/logMethods");
 
 
 
@@ -8,7 +9,6 @@ exports.getProducts = (req, res, next) => {
   console.log('> Get products called')
   res.status(200).json(products);
 };
-
 // ADD new product
 exports.addProduct = (req, res, next) => {
   try{

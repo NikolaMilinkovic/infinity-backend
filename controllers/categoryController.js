@@ -1,7 +1,7 @@
 const CustomError = require("../utils/CustomError");
 const { getSocketInstance } = require("../utils/socket");
-const Category = require('../schemas/category')
-
+const Category = require('../schemas/category');
+const { betterErrorLog } = require("../utils/logMethods");
 
 
 // GET

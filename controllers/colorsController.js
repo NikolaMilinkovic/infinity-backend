@@ -1,7 +1,7 @@
 const Color = require('../schemas/color');
 const CustomError = require('../utils/CustomError');
+const { betterErrorLog } = require('../utils/logMethods');
 const { getSocketInstance } = require('../utils/socket');
-
 
 
 // GET ALL COLORS

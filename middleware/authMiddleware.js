@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../schemas/user');
 require('dotenv').config();
 const CustomError = require('../utils/CustomError');
+const { betterErrorLog } = require('../utils/logMethods');
 
 module.exports = function() {
   const opts = {

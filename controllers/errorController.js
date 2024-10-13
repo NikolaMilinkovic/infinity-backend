@@ -1,8 +1,10 @@
 require('dotenv').config();
 const CustomError = require('../utils/CustomError');
+const { betterErrorLog } = require('../utils/logMethods');
 
 // Development environment errors
 const devErrors = (res, err) => {
+  betterErrorLog(err.message, err);
   res.status(err.statusCode).json({
     status: err.statusCode,
     message: err.message,
@@ -12,6 +14,7 @@ const devErrors = (res, err) => {
 };
 // Production environment errors
 const prodErrors = (res, err) => {
+  betterErrorLog(err.message, err);
   if (err.isOperational) {
     res.status(err.statusCode).json({
       status: err.statusCode,
