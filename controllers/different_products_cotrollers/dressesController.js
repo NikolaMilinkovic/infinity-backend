@@ -3,7 +3,7 @@ const Dress = require("../../schemas/dress");
 const { getSocketInstance } = require('../../utils/socket');
 const DressColor = require("../../schemas/dressColor");
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/s3Methods");
-const { betterErrorLog } = require("../../utils/logMethods");
+const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
@@ -36,11 +36,12 @@ exports.addDress = async (req, res, next) => {
     });
 
     const result = await newDress.save();
+    const populatedDress = await Dress.findById(result._id).populate('colors');
     const io = getSocketInstance();
     if(io) {
-      console.log('> Emitting an update to all devices for new active dress: ', newDress.name);
-      io.emit('activeDressAdded', newDress);
-      io.emit('activeProductAdded', newDress);
+      betterConsoleLog(`> Logging out the newly added dress ${populatedDress.name}`, populatedDress);
+      io.emit('activeDressAdded', populatedDress);
+      io.emit('activeProductAdded', populatedDress);
     }
 
     res.status(200).json({ message: `Haljina sa imenom ${name} je uspešno dodata` });

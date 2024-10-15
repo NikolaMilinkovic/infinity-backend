@@ -40,13 +40,14 @@ exports.addPurse = async (req, res, next) => {
       image
     });
     const result = await newPurse.save();
+    const populatedPurse = await Purse.findById(result._id).populate('colors');
 
     // Initiate socket updates
     const io = getSocketInstance();
     if(io) {
-      console.log('> Emitting an update to all devices for new active purse: ', newPurse.name);
-      io.emit('activePurseAdded', newPurse);
-      io.emit('activeProductAdded', newPurse);
+      betterConsoleLog(`> Emiting update to all devices for new purse ${populatedPurse.name}`, populatedPurse);
+      io.emit('activePurseAdded', populatedPurse);
+      io.emit('activeProductAdded', populatedPurse);
     }
 
     res.status(200).json({ message: `Torbica sa imenom ${name} je uspešno dodata` });
