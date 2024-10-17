@@ -1,0 +1,30 @@
+### Token reference
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmZkYjA4YzM2N2QzZmYxOGRkZmM2YmYiLCJpYXQiOjE3MjkxNzQ1NDIsImV4cCI6MjA0NDc1MDU0Mn0.8LolAWfn0cILYT0qRA7kRTJH01kMaDRXmhhrAfm0IVI
+
+### Simulate Login Request
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "username": "helvos",
+  "password": "helvos"
+}
+
+#=#=#=#=#=#=[ PARSE DATA ]=#=#=#=#=#=#
+### Test for parseOrderData API using OpenAI
+POST http://localhost:3000/orders/parse
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderData": "Poručila bih crnu haljinu.Katarina Georgijevski Milovanov,Cara Dušana 19,26340 Kruščica.0600951984,3800❗❗❗"
+}
+
+### Test missing orderData (should return 400)
+POST http://localhost:3000/orders/parse
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderData": null
+}
