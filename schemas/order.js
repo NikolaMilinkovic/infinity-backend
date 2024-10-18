@@ -9,15 +9,9 @@ const OrderSchema = new Schema({
   },
   products: [
     {
-      name: { type: String, required: [true, 'Product name is required'] },
-      category: {type: String, required: [true, 'Product category is required']},
-      price: { type: Number, required: [true, 'Product price is required'] },
-      color: { type: String, required: [true, 'Product color is required'] },
-      size: { type: String, required: false },
-      image: {
-        uri: { type: String, required: [true, 'Image URI is required'] },
-        imageName: { type: String, required: [true, 'Image name is required'] },
-      }
+      product: { type: Schema.Types.ObjectId, required: [true, 'Product is required'] },
+      productType: { type: String, required: [true, 'Product type is required'] },
+      quantity: { type: Number, required: [true, 'Product quantity is required'] },
     }
   ],
   price: { type: Number, required: [true, 'Order price is required'] },
