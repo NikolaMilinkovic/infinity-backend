@@ -59,7 +59,6 @@ exports.updateCourier = async(req, res, next) => {
       io.emit('courierUpdated', updatedCourier);
     }
 
-    // Optionally, send a response
     res.status(200).json({
       message: `Kurir ${name} uspešno sačuvan`,
       courier: updatedCourier,
