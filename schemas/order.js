@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 
 const OrderSchema = new Schema({
   buyer: {
-    fullName: { type: String, required: [true, 'Buyer name is required'] },
+    name: { type: String, required: [true, 'Buyer name is required'] },
     address: { type: String, required: [true, 'Buyer address is required'] },
     phone: { type: String, required: [true, 'Phone number is required'] }
   },
