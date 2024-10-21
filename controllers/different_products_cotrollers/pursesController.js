@@ -8,11 +8,11 @@ const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 // ADD NEW PURSE
 exports.addPurse = async (req, res, next) => {
   try{
-    const { name, category, price, colors } = req.body;
+    const { name, category, stockType, price, colors } = req.body;
     let image;
     // Validate data
-    if (!name || !category || !price || colors.length === 0 || !req.file)
-      return next(new CustomError('Vrednost za ime, kategoriju, cenu, boju ili sliku nije pronađena', 404));
+    if (!name || !category || !stockType || !price || colors.length === 0 || !req.file)
+      return next(new CustomError('Vrednost za ime, kategoriju, jedinicu asortimana, cenu, boju ili sliku nije pronađena', 404));
 
     // Upload to S3
     if(req.file){
@@ -35,6 +35,7 @@ exports.addPurse = async (req, res, next) => {
     const newPurse = new Purse({
       name,
       category,
+      stockType,
       price,
       colors: colorIds,
       image

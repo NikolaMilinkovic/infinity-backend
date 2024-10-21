@@ -6,6 +6,11 @@ const CategorySchema = new Schema({
     type: String, 
     required: [true, 'Please provide a category name'], 
     unique: [true, 'This category already exists'] 
+  },
+  stockType: {
+    type: String, 
+    required: [true, 'Please provide a stock type'], 
+    unique: false 
   }
 });
 

@@ -17,7 +17,10 @@ const OrderSchema = new Schema({
   price: { type: Number, required: [true, 'Order price is required'] },
   packed: { type: Boolean, default: false },
   processed: { type: Boolean, default: false },
-  courier: { type: String, required: [true, 'Courier is required'] },
+  courier: {
+    name: { type: String, required: [true, 'Courier is required'] },
+    deliveryPrice: { type: Number, required: [true, 'Delivery price is required'] }
+  },
 }, { timestamps: true }); 
 
 module.exports = mongoose.model("Order", OrderSchema);

@@ -20,7 +20,8 @@ exports.addCategory = async(req, res, next) => {
   try{
     const { category } = req.body;
     const newCategory = new Category({
-      name: category.name
+      name: category.name,
+      stockType: category.stockType
     });
     const response = await newCategory.save();
     const io = getSocketInstance();
@@ -69,11 +70,11 @@ exports.deleteCategory = async(req, res, next) => {
 // UPDATE
 exports.updateCategory = async(req, res, next) => {
   try{
-    const { name } = req.body;
+    const { name, stockType } = req.body;
     const { id } = req.params;
     const updatedCategory = await Category.findByIdAndUpdate(
       id,
-      { name },
+      { name, stockType },
       { new: true }
     );
 

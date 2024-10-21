@@ -5,6 +5,7 @@ const DressSchema = new Schema({
   name: { type: String, required: [true, 'Item name is required'] },
   active: { type: Boolean, default: true },
   category: { type: String, required: [true, 'Category is required'] },
+  stockType: { type: String, required: [true, 'Stock type is required'] },
   price: { type: Number, required: [true, 'Price is required'] },
   colors: [{ type: Schema.Types.ObjectId, ref: 'DressColor' }],
   image: {

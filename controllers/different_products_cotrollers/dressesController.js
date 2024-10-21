@@ -8,10 +8,10 @@ const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
   try {
-    const { name, category, price, colors } = req.body;
+    const { name, category, stockType, price, colors } = req.body;
     let image;
-    if (!name || !category || !price || colors.length === 0 || !req.file)
-      return next(new CustomError('Vrednost za ime, kategoriju, cenu, boju ili sliku nije pronađena', 404));
+    if (!name || !category || !price || !stockType || colors.length === 0 || !req.file)
+      return next(new CustomError('Vrednost za ime, kategoriju, jedinicu asortimana, cenu, boju ili sliku nije pronađena', 404));
 
     // Upload to S3
     if (req.file) {
@@ -30,6 +30,7 @@ exports.addDress = async (req, res, next) => {
     const newDress = new Dress({
       name,
       category,
+      stockType,
       price,
       colors: colorIds,
       image

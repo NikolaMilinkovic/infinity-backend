@@ -21,6 +21,7 @@ exports.addCourier = async(req, res, next) => {
     const { courier } = req.body;
     const newCourier = new Courier({
       name: courier.name,
+      deliveryPrice: courier.deliveryPrice
     })
 
     const response = await newCourier.save();
@@ -44,11 +45,11 @@ exports.addCourier = async(req, res, next) => {
 // UPDATE A COURIER
 exports.updateCourier = async(req, res, next) => {
   try{
-    const { name } = req.body;
+    const { name, deliveryPrice } = req.body;
     const { id } = req.params;
     const updatedCourier = await Courier.findByIdAndUpdate(
       id,
-      { name },
+      { name, deliveryPrice },
       { new: true }
     );
 

@@ -6,6 +6,10 @@ const CourierSchema = new Schema({
     type: String, 
     required: [true, 'Please provide a courier name'], 
     unique: [true, 'This courier already exists']
+  },
+  deliveryPrice: { 
+    type: Number, 
+    required: [true, 'Please provide a courier name'], 
   }
 });
 
