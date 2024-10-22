@@ -5,21 +5,27 @@ const OrderSchema = new Schema({
   buyer: {
     name: { type: String, required: [true, 'Buyer name is required'] },
     address: { type: String, required: [true, 'Buyer address is required'] },
-    phone: { type: String, required: [true, 'Phone number is required'] }
+    phone: { type: String, required: [true, 'Phone number is required'] },
+    profileImage: {
+      uri: { type: String, required: [true, 'Image is required'] },
+      imageName: { type: String, require: [true, 'Image Name is required'] },
+    },
   },
   products: [
     {
-      product: { type: Schema.Types.ObjectId, required: [true, 'Product is required'] },
-      productType: { type: String, required: [true, 'Product type is required'] },
-      quantity: { type: Number, required: [true, 'Product quantity is required'] },
+      itemReference: { type: Schema.Types.ObjectId, required: [true, 'Item Reference is required'] },
+      selectedColor: { type: String, required: [true, 'Item color is required'] },
+      selectedSize: { type: String, require: false },
     }
   ],
-  price: { type: Number, required: [true, 'Order price is required'] },
+  productsPrice: { type: Number, required: [true, 'Products price is required'] },
+  totalPrice: { type: Number, required: [true, 'Total price is required'] },
+  reservation: { type: Boolean, default: false },
   packed: { type: Boolean, default: false },
   processed: { type: Boolean, default: false },
   courier: {
-    name: { type: String, required: [true, 'Courier is required'] },
-    deliveryPrice: { type: Number, required: [true, 'Delivery price is required'] }
+    name: { type: String, required: false },
+    deliveryPrice: { type: Number, required: false }
   },
 }, { timestamps: true }); 
 
