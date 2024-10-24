@@ -14,6 +14,8 @@ const DressSchema = new Schema({
   },
 });
 
+DressSchema.index({ active: 1 }); 
+
 module.exports = mongoose.model("Dress", DressSchema);
 
 // OVA DVA IDU U PORUDZBINU !!!

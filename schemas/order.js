@@ -15,7 +15,9 @@ const OrderSchema = new Schema({
     {
       itemReference: { type: Schema.Types.ObjectId, required: [true, 'Item Reference is required'] },
       selectedColor: { type: String, required: [true, 'Item color is required'] },
+      selectedColorId: { type: String, required: [true, 'Selected color id is required'] },
       selectedSize: { type: String, require: false },
+      selectedSizeId: { type: String, required: false },
     }
   ],
   productsPrice: { type: Number, required: [true, 'Products price is required'] },
@@ -28,5 +30,9 @@ const OrderSchema = new Schema({
     deliveryPrice: { type: Number, required: false }
   },
 }, { timestamps: true }); 
+
+OrderSchema.index({ reservation: 1 }); 
+OrderSchema.index({ processed: 1 }); 
+OrderSchema.index({ packed: 1 }); 
 
 module.exports = mongoose.model("Order", OrderSchema);

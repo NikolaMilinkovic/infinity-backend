@@ -14,4 +14,6 @@ const PurseSchema = new Schema({
   },
 });
 
+PurseSchema.index({ active: 1 }); 
+
 module.exports = mongoose.model("Purse", PurseSchema);
