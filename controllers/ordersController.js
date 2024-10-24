@@ -3,7 +3,7 @@ const { getSocketInstance } = require("../utils/socket");
 const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
 const { parseOrderData } = require("../utils/ai/AiMethods");
 const { uploadMediaToS3 } = require("../utils/s3/s3Methods");
-const Order = require('../schemas/order');
+const Orders = require('../schemas/order');
 const { dressColorStockHandler, updateDressActiveStatus } = require("../utils/dressStockMethods");
 const { purseColorStockHandler, updatePurseActiveStatus } = require("../utils/PurseStockMethods");
 
@@ -58,9 +58,12 @@ exports.addOrder = async(req, res, next) => {
     // console.log('Processed:', processed);
     // console.log('Courier:', courier);
     // console.log('Profile Image:', profileImage);
+    productData.forEach((product) => {
+      product.itemReference = product.itemReference._id;
+    })
 
     // NEW ORDER
-    const order = new Order({
+    const order = new Orders({
       buyer: {
         name: buyerData.name,
         address: buyerData.address,
@@ -83,12 +86,13 @@ exports.addOrder = async(req, res, next) => {
     });
 
     const newOrder = await order.save();
-    betterConsoleLog('> Logging New Order: ', newOrder);
+    const io = getSocketInstance();
+    io.emit('orderAdded', newOrder);
+    // betterConsoleLog('> Logging New Order: ', newOrder);
     
     // SOCKETS | Handles updates in the database & on client
-    const io = getSocketInstance();
     for(const product of productData){
-      if(product.itemReference.stockType === 'Boja-Veličina-Količina'){
+      if(product.stockType === 'Boja-Veličina-Količina'){
         // Update the dress stock in DB
         const updatedItem = await dressColorStockHandler(product.selectedColorId, product.selectedSizeId, 'decrement', 1, next)
         if(!updatedItem) return;
@@ -108,6 +112,7 @@ exports.addOrder = async(req, res, next) => {
           decrement: 1
         }
         io.emit('allProductStockDecrease', dressData);
+        io.emit('handleDressStockDecrease', dressData);
 
 
         // Call socket active to unactive update for all devices
@@ -131,6 +136,7 @@ exports.addOrder = async(req, res, next) => {
           decrement: 1
         }
         io.emit('allProductStockDecrease', purseData);
+        io.emit('handlePurseStockDecrease', purseData);
       }
     }
 
@@ -144,29 +150,29 @@ exports.addOrder = async(req, res, next) => {
 }
 
 
+exports.getProcessedOrders = async(req, res, next) => {
+  try{
+    const orders = await Orders.find({ processed: true });
+    res.status(200).json({ message: 'Procesovane porudžbine uspešno preuzete', orders });
 
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error adding an order:', error);
+    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));  
+  }
+}
 
+exports.getUnprocessedOrders = async(req, res, next) => {
+  try{
+    const orders = await Orders.find({ processed: false });
+    res.status(200).json({ message: 'Neprocesovane porudžbine uspešno preuzete', orders });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error adding an order:', error);
+    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));  
+  }
+}
 
 
 exports.parseOrder = async(req, res, next) => {
