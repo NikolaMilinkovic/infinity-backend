@@ -32,3 +32,20 @@ exports.removeProductBatch = async (req, res, next) => {
     return next(new CustomError('Došlo je do problema prilikom brisanja proizvoda', statusCode)); 
   }
 }
+
+exports.updateProduct = async (req, res, next) => {
+  try{
+    console.log('> Update product called.')
+    const data = req.body;
+    const { id } = req.params;
+    console.log('> Sent Id is' + id);
+    betterConsoleLog('> Data is:', data);
+
+    res.status(200).json({ message: 'Proizvod uspešno izmenjen i sačuvan' });
+
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error during product update:', error);
+    return next(new CustomError('Došlo je do problema prilikom updejtovanja proizvoda', statusCode)); 
+  }
+}
