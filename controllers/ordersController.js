@@ -105,8 +105,8 @@ exports.addOrder = async(req, res, next) => {
 
         // Emit new dress stock
         const dressData = {
-          stockType: product.itemReference.stockType,
-          dressId: product.itemReference._id,
+          stockType: product.stockType,
+          dressId: product.itemReference,
           colorId: product.selectedColorId,
           sizeId: product.selectedSizeId,
           decrement: 1
@@ -130,8 +130,8 @@ exports.addOrder = async(req, res, next) => {
 
         // Emit new purse stock
         const purseData = {
-          stockType: product.itemReference.stockType,
-          purseId: product.itemReference._id,
+          stockType: product.stockType,
+          purseId: product.itemReference,
           colorId: product.selectedColorId,
           decrement: 1
         }

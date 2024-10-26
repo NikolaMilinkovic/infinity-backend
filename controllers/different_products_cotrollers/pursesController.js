@@ -83,3 +83,51 @@ exports.getAllInactivePurses = async(req, res, next) => {
     return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o neaktivnim torbicama', statusCode));  
   }
 }
+
+exports.deletePurse = async(req, res, next) => {
+  try{
+    const { id } = req.params;
+    const purse = await Purse.findById(id);
+    if(!purse){
+      return next(new CustomError(`Proizvod sa ID: ${id} nije pronađen`, 404));
+    }
+
+    // Delete all PurseColor objects from DB
+    for (const colorId of purse.colors) {
+      await PurseColor.findByIdAndDelete(colorId);
+    }
+
+    // Delete image from s3 bucket
+    await deleteMediaFromS3(purse.image.imageName);
+
+    // Delete the Purse object
+    const deletedPurse = await Purse.findByIdAndDelete(id);
+    if(!deletedPurse){
+      return next(new CustomError(`Proizvod sa ID: ${id} nije pronađen`, 404));
+    }
+
+    // SOCKET HANDLING
+    const io = getSocketInstance();
+    if (io) {
+      if (purse.active) {
+        console.log('> Deleting an active purse');
+        console.log('> Emiting an update to all devices for active purse deletion: ', deletedPurse.name);
+        io.emit('activePurseRemoved', deletedPurse._id);
+        io.emit('activeProductRemoved', deletedPurse._id);
+      } else {
+        console.log('> Deleting an inactive purse');
+        console.log('> Emiting an update to all devices for inactive purse deletion: ', deletedPurse.name);
+        io.emit('inactivePurseRemoved', deletedPurse._id);
+        io.emit('inactiveProductRemoved', deletedPurse._id);
+      }
+    }
+
+
+    res.status(200).json({ message: `Proizvod pod imenom ${deletedPurse.name} je uspešno obrisan`, purse: deletedPurse });
+
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error deleting a purse:', error);
+    return next(new CustomError('Došlo je do problema prilikom brisanja proizvoda', statusCode)); 
+  }
+}

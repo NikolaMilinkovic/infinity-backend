@@ -4,6 +4,8 @@ const Purse = require('../schemas/purse');
 const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
+const { deleteMediaFromS3 } = require('./s3/s3Methods');
+const { getSocketInstance } = require('./socket');
 
 
 async function dressColorStockHandler(colorId, sizeId, operation, value = 1, next){
@@ -62,7 +64,47 @@ async function updateDressActiveStatus(dressId) {
 }
 
 
+async function removeDressById(dressId){
+  const dress = await Dress.findById(dressId).populate('colors');
+  if (!dress) {
+    throw new Error('Purse not found for id ' + dressId);
+  }
+
+      // Delete all DressColors objects from DB
+      for (const colorId of dress.colors) {
+        await DressColor.findByIdAndDelete(colorId);
+      }
+
+      // Delete image from s3 bucket
+      await deleteMediaFromS3(dress.image.imageName);
+
+    // Delete the Dress object
+    const deletedDress = await Dress.findByIdAndDelete(dressId);
+    if(!deletedDress){
+      return next(new CustomError(`Proizvod sa ID: ${dressId} nije pronađen`, 404));
+    }
+
+    // SOCKET HANDLING
+    const io = getSocketInstance();
+    if (io) {
+      if (dress.active) {
+        console.log('> Deleting an active dress');
+        console.log('> Emiting an update to all devices for active dress deletion: ', deletedDress.name);
+        io.emit('activeDressRemoved', deletedDress._id);
+        io.emit('activeProductRemoved', deletedDress._id);
+      } else {
+        console.log('> Deleting an inactive dress');
+        console.log('> Emiting an update to all devices for inactive dress deletion: ', deletedDress.name);
+        io.emit('inactiveDresseRemoved', deletedDress._id);
+        io.emit('inactiveProductRemoved', deletedDress._id);
+      }
+    }
+
+    return true;
+}
+
 module.exports = {
   dressColorStockHandler,
   updateDressActiveStatus,
+  removeDressById
 };

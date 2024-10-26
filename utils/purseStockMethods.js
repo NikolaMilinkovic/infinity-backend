@@ -2,6 +2,8 @@ const Purse = require('../schemas/purse');
 const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
+const { deleteMediaFromS3 } = require('./s3/s3Methods');
+const { getSocketInstance } = require('./socket');
 
 
 async function purseColorStockHandler(colorId, operation, value = 1, next){
@@ -54,7 +56,47 @@ async function updatePurseActiveStatus(purseId) {
 }
 
 
+async function removePurseById(purseId){
+  const purse = await Purse.findById(purseId).populate('colors');
+  if (!purse) {
+    throw new Error('Purse not found for id ' + purseId);
+  }
+
+      // Delete all DressColors objects from DB
+      for (const colorId of purse.colors) {
+        await PurseColor.findByIdAndDelete(colorId);
+      }
+  
+      // Delete image from s3 bucket
+      await deleteMediaFromS3(purse.image.imageName);
+
+          // Delete the Purse object
+    const deletedPurse = await Purse.findByIdAndDelete(purseId);
+    if(!deletedPurse){
+      return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));
+    }
+
+    // SOCKET HANDLING
+    const io = getSocketInstance();
+    if (io) {
+      if (purse.active) {
+        console.log('> Deleting an active purse');
+        console.log('> Emiting an update to all devices for active purse deletion: ', deletedPurse.name);
+        io.emit('activePurseRemoved', deletedPurse._id);
+        io.emit('activeProductRemoved', deletedPurse._id);
+      } else {
+        console.log('> Deleting an inactive purse');
+        console.log('> Emiting an update to all devices for inactive purse deletion: ', deletedPurse.name);
+        io.emit('inactivePurseRemoved', deletedPurse._id);
+        io.emit('inactiveProductRemoved', deletedPurse._id);
+      }
+    }
+
+    return true;
+}
+
 module.exports = {
   purseColorStockHandler,
   updatePurseActiveStatus,
+  removePurseById
 };

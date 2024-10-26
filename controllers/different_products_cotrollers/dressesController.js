@@ -124,6 +124,6 @@ exports.deleteDress = async(req, res, next) => {
   } catch(error){
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error deleting a dress:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja brisanja haljine', statusCode)); 
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja brisanja proizvoda', statusCode)); 
   }
 }

@@ -1,0 +1,26 @@
+### Token reference
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmZkYjA4YzM2N2QzZmYxOGRkZmM2YmYiLCJpYXQiOjE3MjgzODgyMzEsImV4cCI6MjA0Mzk2NDIzMX0.9_ylHmcm14Mpj5hbe1n2mLr0WjAvd3t6WaWbCl6i6Kk
+
+### Simulate Login Request
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "username": "helvos",
+  "password": "helvos"
+}
+
+#=#=#=#=#=#=[ PURSES ]=#=#=#=#=#=#
+
+### Simulate getting all active purses
+GET http://localhost:3000/products/active-purses
+Authorization: Bearer {{token}}
+
+### Simulate getting all inactive purses
+GET http://localhost:3000/products/inactive-purses
+Authorization: Bearer {{token}}
+
+### Test removing an active purse
+DELETE http://localhost:3000/products/purse/671cebaaddc6f68c98efb021
+Authorization: Bearer {{token}}
+Content-Type: application/json

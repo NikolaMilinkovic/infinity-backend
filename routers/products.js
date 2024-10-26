@@ -12,7 +12,10 @@ const {
   addPurse,
   getAllActivePurses,
   getAllInactivePurses,
+  deletePurse
 } = require('../controllers/different_products_cotrollers/pursesController');
+
+const { removeProductBatch } = require('../controllers/different_products_cotrollers/genericProductController')
 const router = new express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -20,6 +23,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 router
   .route("")
   .get(getProducts)
+
+router
+  .route("/delete-item-batch")
+  .delete(removeProductBatch)
 
 
 // =======================[ DRESSES ]=======================
@@ -41,7 +48,7 @@ router
 // =======================[ PURSES ]=======================
 router
   .route("/purse/:id")
-  // .delete(deletePurse)
+  .delete(deletePurse)
 router
   .route("/purse")
   .post(upload.single('image'), addPurse);
