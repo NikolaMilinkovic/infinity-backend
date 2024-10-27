@@ -30,7 +30,7 @@ router
 
 router
   .route("/update/:id")
-  .put(updateProduct)
+  .put(upload.single('image'), updateProduct)
 
 
 // =======================[ DRESSES ]=======================

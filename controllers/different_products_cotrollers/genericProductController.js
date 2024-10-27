@@ -35,17 +35,196 @@ exports.removeProductBatch = async (req, res, next) => {
 
 exports.updateProduct = async (req, res, next) => {
   try{
-    console.log('> Update product called.')
-    const data = req.body;
+    console.log('> Update product called')
+    const {
+      previousStockType,
+      active,
+      name,
+      price,
+      category,
+      stockType,
+      colors
+    } = req.body;
     const { id } = req.params;
-    console.log('> Sent Id is' + id);
-    betterConsoleLog('> Data is:', data);
+    const io = getSocketInstance();
 
-    res.status(200).json({ message: 'Proizvod uspešno izmenjen i sačuvan' });
+    let product;
+    let colorsArray = Array.isArray(colors) ? colors : JSON.parse(colors);
+    const newImageData = req.file;
+    let image;
 
+
+    // FETCH THE PRODUCT
+    if(previousStockType === 'Boja-Veličina-Količina'){
+      product = await Dress.findById(id);
+    }
+    if(previousStockType === 'Boja-Količina'){
+      product = await Purse.findById(id);
+    }
+    if (newImageData) {
+      // If an image is uploaded, handle it
+      if (newImageData.imageName === product.image.imageName) {
+        image = product.image; // Keep the current image if it's unchanged
+      } else {
+        image = await uploadMediaToS3(req.file, next);
+        await deleteMediaFromS3(product.image.imageName); // Delete the old image
+      }
+    } else {
+      // If no new image is provided, keep the existing image
+      image = product.image;
+    }
+    if(!product) return res.status(404).json({ message: 'Prizvod nije pronađen u bazi podataka za id: '+ id });
+
+    // COMPARE PRODUCT STOCK TYPE
+    if(stockType !== previousStockType){
+      const colorIdsForDeletion = product.colors;
+      // DIFFERENT STOCK TYPE
+      // Remove all product color objects & remove the product | Socket update clients
+      if(product.stockType === 'Boja-Veličina-Količina'){
+        await DressColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
+        await Dress.findByIdAndDelete(product._id);
+        if(io){
+          if(product.active){
+            io.emit('activeDressRemoved', product._id);
+            io.emit('activeProductRemoved', product._id);
+          } else {
+            io.emit('inactiveDressRemoved', product._id);
+            io.emit('inactiveProductRemoved', product._id);
+          }
+        }
+
+        // INSERT PURSE DATA
+        const insertedColors = await PurseColor.insertMany(colorsArray);
+        const colorIds = insertedColors.map((color) => color._id);
+        const newPurse = new Purse({
+          name: name,
+          category: category,
+          stockType: stockType,
+          price: price,
+          colors: colorIds,
+          image: image,
+        });
+        const result = await newPurse.save();
+        const populatedPurse = await Purse.findById(result._id).populate('colors');
+        if(io){
+          io.emit('activePurseAdded', populatedPurse);
+          io.emit('activeProductAdded', populatedPurse);
+        }
+      }
+      if(product.stockType === 'Boja-Količina'){
+        await PurseColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
+        await Purse.findByIdAndDelete(product._id);
+        if(io){
+          if(product.active){
+            io.emit('activePurseRemoved', product._id);
+            io.emit('activeProductRemoved', product._id);
+          } else {
+            io.emit('inactivePurseRemoved', product._id);
+            io.emit('inactiveProductRemoved', product._id);
+          }
+        }
+
+        // INSERT DRESS DATA
+        const insertedColors = await DressColor.insertMany(colorsArray);
+        const colorIds = insertedColors.map((color) => color._id);
+        const newDress = new Dress({
+          name: name,
+          category: category,
+          stockType: stockType,
+          price: price,
+          colors: colorIds,
+          image: image,
+        });
+    
+        const result = await newDress.save();
+        const populatedDress = await Dress.findById(result._id).populate('colors');
+        if(io){
+          io.emit('activeDressAdded', populatedDress);
+          io.emit('activeProductAdded', populatedDress);
+        }
+      }
+
+      return res.status(200).json({ message: 'Proizvod je uspešno ažuriran' });
+    } else {
+      const colorIdsForDeletion = product.colors;
+      if(product.stockType === 'Boja-Veličina-Količina'){
+        await DressColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
+        await Dress.findByIdAndDelete(product._id);
+        if(io){
+          if(product.active){
+            io.emit('activeDressRemoved', product._id);
+            io.emit('activeProductRemoved', product._id);
+          } else {
+            io.emit('inactiveDressRemoved', product._id);
+            io.emit('inactiveProductRemoved', product._id);
+          }
+        }
+        const insertedColors = await DressColor.insertMany(colorsArray);
+        const colorIds = insertedColors.map((color) => color._id);
+        const newDress = new Dress({
+          name: name,
+          category: category,
+          stockType: stockType,
+          price: price,
+          colors: colorIds,
+          image: image,
+        });
+    
+        const result = await newDress.save();
+        const populatedDress = await Dress.findById(result._id).populate('colors');
+        if(io){
+          io.emit('activeDressAdded', populatedDress);
+          io.emit('activeProductAdded', populatedDress);
+        }
+      }
+      if(product.stockType === 'Boja-Količina'){
+        await PurseColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
+        await Purse.findByIdAndDelete(product._id);
+        if(io){
+          if(product.active){
+            io.emit('activePurseRemoved', product._id);
+            io.emit('activeProductRemoved', product._id);
+          } else {
+            io.emit('inactivePurseRemoved', product._id);
+            io.emit('inactiveProductRemoved', product._id);
+          }
+        }
+        const insertedColors = await PurseColor.insertMany(colorsArray);
+        const colorIds = insertedColors.map((color) => color._id);
+        const newPurse = new Purse({
+          name: name,
+          category: category,
+          stockType: stockType,
+          price: price,
+          colors: colorIds,
+          image: image,
+        });
+        const result = await newPurse.save();
+        const populatedPurse = await Purse.findById(result._id).populate('colors');
+        if(io){
+          io.emit('activePurseAdded', populatedPurse);
+          io.emit('activeProductAdded', populatedPurse);
+        }
+      }
+
+      return res.status(200).json({ message: 'Proizvod je uspešno ažuriran' });
+    }
   } catch(error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error during product update:', error);
-    return next(new CustomError('Došlo je do problema prilikom updejtovanja proizvoda', statusCode)); 
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja proizvoda', statusCode)); 
   }
 }
+
+// const PurseSchema = new Schema({
+//   name: { type: String, required: [true, 'Item name is required'] },
+//   active: { type: Boolean, default: true },
+//   category: { type: String, required: [true, 'Category is required'] },
+//   stockType: { type: String, required: [true, 'Stock type is required'] },
+//   price: { type: Number, required: [true, 'Price is required'] },
+//   colors: [{ type: Schema.Types.ObjectId, ref: 'PurseColor' }],
+//   image: {
+//     uri: { type: String, required: [true, 'Image is required'] },
+//     imageName: { type: String, require: [true, 'Image Name is required'] },
+//   },
+// });
