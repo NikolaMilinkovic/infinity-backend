@@ -98,6 +98,7 @@ exports.updateProduct = async (req, res, next) => {
         const colorIds = insertedColors.map((color) => color._id);
         const newPurse = new Purse({
           name: name,
+          active: active,
           category: category,
           stockType: stockType,
           price: price,
@@ -107,8 +108,13 @@ exports.updateProduct = async (req, res, next) => {
         const result = await newPurse.save();
         const populatedPurse = await Purse.findById(result._id).populate('colors');
         if(io){
-          io.emit('activePurseAdded', populatedPurse);
-          io.emit('activeProductAdded', populatedPurse);
+          if(active){
+            io.emit('activePurseAdded', populatedPurse);
+            io.emit('activeProductAdded', populatedPurse);
+          } else {
+            io.emit('inactivePurseAdded', populatedPurse);
+            io.emit('inactiveProductAdded', populatedPurse);
+          }
         }
       }
       if(product.stockType === 'Boja-Količina'){
@@ -129,6 +135,7 @@ exports.updateProduct = async (req, res, next) => {
         const colorIds = insertedColors.map((color) => color._id);
         const newDress = new Dress({
           name: name,
+          active: active,
           category: category,
           stockType: stockType,
           price: price,
@@ -139,8 +146,13 @@ exports.updateProduct = async (req, res, next) => {
         const result = await newDress.save();
         const populatedDress = await Dress.findById(result._id).populate('colors');
         if(io){
-          io.emit('activeDressAdded', populatedDress);
-          io.emit('activeProductAdded', populatedDress);
+          if(active){
+            io.emit('activeDressAdded', populatedDress);
+            io.emit('activeProductAdded', populatedDress);
+          } else {
+            io.emit('inactiveDressAdded', populatedDress);
+            io.emit('inactiveProductAdded', populatedDress);
+          }
         }
       }
 
@@ -152,17 +164,18 @@ exports.updateProduct = async (req, res, next) => {
         await Dress.findByIdAndDelete(product._id);
         if(io){
           if(product.active){
-            io.emit('activeDressRemoved', product._id);
             io.emit('activeProductRemoved', product._id);
+            io.emit('activeDressRemoved', product._id);
           } else {
-            io.emit('inactiveDressRemoved', product._id);
             io.emit('inactiveProductRemoved', product._id);
+            io.emit('inactiveDressRemoved', product._id);
           }
         }
         const insertedColors = await DressColor.insertMany(colorsArray);
         const colorIds = insertedColors.map((color) => color._id);
         const newDress = new Dress({
           name: name,
+          active: active,
           category: category,
           stockType: stockType,
           price: price,
@@ -173,8 +186,13 @@ exports.updateProduct = async (req, res, next) => {
         const result = await newDress.save();
         const populatedDress = await Dress.findById(result._id).populate('colors');
         if(io){
-          io.emit('activeDressAdded', populatedDress);
-          io.emit('activeProductAdded', populatedDress);
+          if(active){
+            io.emit('activeProductAdded', populatedDress);
+            io.emit('activeDressAdded', populatedDress);
+          } else {
+            io.emit('inactiveProductAdded', populatedDress);
+            io.emit('inactiveDressAdded', populatedDress);
+          }
         }
       }
       if(product.stockType === 'Boja-Količina'){
@@ -182,17 +200,18 @@ exports.updateProduct = async (req, res, next) => {
         await Purse.findByIdAndDelete(product._id);
         if(io){
           if(product.active){
-            io.emit('activePurseRemoved', product._id);
             io.emit('activeProductRemoved', product._id);
+            io.emit('activePurseRemoved', product._id);
           } else {
-            io.emit('inactivePurseRemoved', product._id);
             io.emit('inactiveProductRemoved', product._id);
+            io.emit('inactivePurseRemoved', product._id);
           }
         }
         const insertedColors = await PurseColor.insertMany(colorsArray);
         const colorIds = insertedColors.map((color) => color._id);
         const newPurse = new Purse({
           name: name,
+          active: active,
           category: category,
           stockType: stockType,
           price: price,
@@ -202,8 +221,13 @@ exports.updateProduct = async (req, res, next) => {
         const result = await newPurse.save();
         const populatedPurse = await Purse.findById(result._id).populate('colors');
         if(io){
-          io.emit('activePurseAdded', populatedPurse);
-          io.emit('activeProductAdded', populatedPurse);
+          if(active){
+            io.emit('activeProductAdded', populatedPurse);
+            io.emit('activePurseAdded', populatedPurse);
+          } else {
+            io.emit('inactiveProductAdded', populatedPurse);
+            io.emit('inactivePurseAdded', populatedPurse);
+          }
         }
       }
 
@@ -215,16 +239,3 @@ exports.updateProduct = async (req, res, next) => {
     return next(new CustomError('Došlo je do problema prilikom ažuriranja proizvoda', statusCode)); 
   }
 }
-
-// const PurseSchema = new Schema({
-//   name: { type: String, required: [true, 'Item name is required'] },
-//   active: { type: Boolean, default: true },
-//   category: { type: String, required: [true, 'Category is required'] },
-//   stockType: { type: String, required: [true, 'Stock type is required'] },
-//   price: { type: Number, required: [true, 'Price is required'] },
-//   colors: [{ type: Schema.Types.ObjectId, ref: 'PurseColor' }],
-//   image: {
-//     uri: { type: String, required: [true, 'Image is required'] },
-//     imageName: { type: String, require: [true, 'Image Name is required'] },
-//   },
-// });

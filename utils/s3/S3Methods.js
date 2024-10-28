@@ -18,7 +18,8 @@ async function resizeImage(buffer, x = 1080, y = 1920){
 
 async function uploadMediaToS3(file, next) {
   try {
-    const modifiedImageBuffer = await resizeImage(file.buffer, 240, 320);
+    // const modifiedImageBuffer = await resizeImage(file.buffer, 240, 320);
+    const modifiedImageBuffer = await resizeImage(file.buffer, 480, 640);
     const imageName = `${randomImageName()}.jpeg`;
     const params = {
       Bucket: bucket_name,

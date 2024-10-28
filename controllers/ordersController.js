@@ -152,7 +152,7 @@ exports.addOrder = async(req, res, next) => {
 
 exports.getProcessedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ processed: true });
+    const orders = await Orders.find({ processed: true }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Procesovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {

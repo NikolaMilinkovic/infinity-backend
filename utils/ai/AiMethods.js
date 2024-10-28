@@ -32,10 +32,10 @@ async function parseOrderData(data){
                           type: "string"
                       },
                       address: {
-                        description: "Buyers address that appears in the input, if not provided return null for that field"
+                        description: "Buyers address that appears in the input, if not provided return null for that field."
                       },
                       phone: {
-                        description: "Buyers phone number that appears in the input, if not provided return ull for that field",
+                        description: "Buyers phone number that appears in the input, if not provided return null for that field, remove all empty spaces from phone number if there are any.",
                         type: Number
                       }
                   },
