@@ -50,6 +50,11 @@ if(database){
 database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
+// Call seedPurses on server start, creates 1000 purse 
+// mongoose.connection.once('open', async () => {
+  // await seedPurses();
+// });
+
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('helvos', 'helvos');
@@ -82,6 +87,7 @@ app.use('/couriers', couriersRouter);
 
 // =====================[ ERROR HANDLERS ]======================
 const errorHandler = require('./controllers/errorController');
+const { seedPurses } = require('./utils/testDummyData');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================
 

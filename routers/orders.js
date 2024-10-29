@@ -1,6 +1,6 @@
 const express = require('express');
 const router = new express.Router();
-const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders } = require('../controllers/ordersController');
+const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch } = require('../controllers/ordersController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
  
@@ -20,5 +20,9 @@ router
 router
   .route("/processed")
   .get(getProcessedOrders)
+
+router
+  .route("/remove-orders-batch")
+  .delete(removeOrdersBatch)
 
 module.exports = router;

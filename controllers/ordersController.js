@@ -6,6 +6,7 @@ const { uploadMediaToS3 } = require("../utils/s3/s3Methods");
 const Orders = require('../schemas/order');
 const { dressColorStockHandler, updateDressActiveStatus } = require("../utils/dressStockMethods");
 const { purseColorStockHandler, updatePurseActiveStatus } = require("../utils/PurseStockMethods");
+const { removeOrderById, removeBatchOrdersById } = require("../utils/orders");
 
 exports.addOrder = async(req, res, next) => {
   try{
@@ -149,7 +150,6 @@ exports.addOrder = async(req, res, next) => {
   }
 }
 
-
 exports.getProcessedOrders = async(req, res, next) => {
   try{
     const orders = await Orders.find({ processed: true }).sort({ createdAt: -1 });
@@ -174,7 +174,6 @@ exports.getUnprocessedOrders = async(req, res, next) => {
   }
 }
 
-
 exports.parseOrder = async(req, res, next) => {
   try{
     const { orderData } = req.body;
@@ -189,5 +188,23 @@ exports.parseOrder = async(req, res, next) => {
   } catch(error){
     betterErrorLog('> Error parsing order data via AI:', error);
     return next(new CustomError('There was an error while parsing order data via AI', 500));
+  }
+}
+
+// DELETE BATCH ORDERS
+exports.removeOrdersBatch = async (req, res, next) => {
+  try{
+    const data = req.body;
+    let response;
+    if(data.length === 1) response = await removeOrderById(data[0]);
+    if(data.length > 1) response = await removeBatchOrdersById(data);
+
+    betterConsoleLog('> Logging order removal response', response);
+    res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
+
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error during batch order delete:', error);
+    return next(new CustomError('Došlo je do problema prilikom brisanja porudžbina', statusCode)); 
   }
 }
