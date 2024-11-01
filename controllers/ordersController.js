@@ -6,10 +6,12 @@ const { uploadMediaToS3 } = require("../utils/s3/s3Methods");
 const Orders = require('../schemas/order');
 const { dressColorStockHandler, updateDressActiveStatus } = require("../utils/dressStockMethods");
 const { purseColorStockHandler, updatePurseActiveStatus } = require("../utils/PurseStockMethods");
-const { removeOrderById, removeBatchOrdersById } = require("../utils/orders");
+const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
 
 exports.addOrder = async(req, res, next) => {
   try{
+
+    // return res.status(200).json({ message: 'Temp response 200 to prevent going through whole addOrder api' })
     const buyerData = JSON.parse(req.body.buyerData);
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
@@ -43,22 +45,9 @@ exports.addOrder = async(req, res, next) => {
       profileImage = await uploadMediaToS3(req.file, next);
     }
 
-
-    // betterConsoleLog('> Logging profile image', profileImage);
-    // console.log('Profile Image:');
-    betterConsoleLog('> Profile image: ', profileImage);
-    // // Log the extracted variables
-    // console.log('Buyer Data:', buyerData);
     productData.forEach(product => {
       betterConsoleLog('> Product data:', product);
     });
-    // console.log('Products Price:', productsPrice);
-    // console.log('Total Price:', totalPrice);
-    // console.log('Reservation:', reservation);
-    // console.log('Packed:', packed);
-    // console.log('Processed:', processed);
-    // console.log('Courier:', courier);
-    // console.log('Profile Image:', profileImage);
     productData.forEach((product) => {
       product.itemReference = product.itemReference._id;
     })
@@ -194,12 +183,15 @@ exports.parseOrder = async(req, res, next) => {
 // DELETE BATCH ORDERS
 exports.removeOrdersBatch = async (req, res, next) => {
   try{
-    const data = req.body;
-    let response;
-    if(data.length === 1) response = await removeOrderById(data[0]);
-    if(data.length > 1) response = await removeBatchOrdersById(data);
+    // Array of order ids
+    const orderIds = req.body;
 
-    betterConsoleLog('> Logging order removal response', response);
+    betterConsoleLog('> Logging out data', orderIds);
+    let response;
+    if(orderIds.length === 1) response = await removeOrderById(orderIds[0]);
+    if(orderIds.length > 1) response = await removeBatchOrdersById(orderIds);
+    
+    // betterConsoleLog('> Logging order removal response', response);
     res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
 
   } catch(error) {

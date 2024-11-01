@@ -3,6 +3,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
+const multer = require('multer');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
@@ -33,6 +34,7 @@ app.set('view engine', 'pug');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// app.use(multer().any());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
