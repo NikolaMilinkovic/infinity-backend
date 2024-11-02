@@ -200,3 +200,39 @@ exports.removeOrdersBatch = async (req, res, next) => {
     return next(new CustomError('Došlo je do problema prilikom brisanja porudžbina', statusCode)); 
   }
 }
+
+exports.getOrdersByDate = async (req, res, next) => {
+  try{
+    console.log('> RUNNING GET ORDERS BY DATE')
+    console.log('date param is', req.params.date)
+    const dateParam = req.params.date;
+    const selectedDate = new Date(dateParam);
+  
+    if (isNaN(selectedDate.getTime())) {
+      return next(new CustomError('Nevažeći format datuma', 400));
+    }
+  
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+  
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    const orders = await Orders.find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    });
+    const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    
+    res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders })
+    return orders;
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)); 
+  }
+}

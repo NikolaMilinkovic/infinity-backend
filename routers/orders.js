@@ -1,6 +1,6 @@
 const express = require('express');
 const router = new express.Router();
-const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch } = require('../controllers/ordersController');
+const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate } = require('../controllers/ordersController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
  
@@ -12,6 +12,10 @@ router
 router
   .route("/")
   .post(upload.single('profileImage'), addOrder)
+
+router
+  .route("/fetch-by-date/:date")
+  .get(getOrdersByDate)
 
 router
   .route("/unprocessed")
