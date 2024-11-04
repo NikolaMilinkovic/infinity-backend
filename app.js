@@ -44,10 +44,15 @@ authModule.initializeAuth(app);
 
 // ===============[ MongoDB connection ]=============== //
 const conn_string = process.env.DB_URL;
-mongoose.connect(conn_string);
+mongoose.connect(conn_string)
+.then(() => {
+  initializeAppSettings();
+}).catch((error) => {
+  console.error('MongoDB connection error', error);
+});
 const database = mongoose.connection;
 if(database){
-  console.log('> Connected to Database')
+  console.log('> Connected to Database');
 }
 database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
@@ -69,6 +74,9 @@ app.post('/login', authModule.login);
 // =====================[ PROTECTED ROUTERS ]======================
 app.use(authModule.authenticateJWT);
 const io = getSocketInstance();
+
+const appRouter = require('./routers/appRouter');
+app.use('/app', appRouter);
 
 const userRouter = require('./routers/user');
 app.use('/user', userRouter);
@@ -93,6 +101,7 @@ app.use('/couriers', couriersRouter);
 // =====================[ ERROR HANDLERS ]======================
 const errorHandler = require('./controllers/errorController');
 const { seedPurses } = require('./utils/testDummyData');
+const { initializeAppSettings } = require('./schemas/appSchema');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================
 

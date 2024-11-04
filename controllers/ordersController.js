@@ -2,11 +2,12 @@ const CustomError = require("../utils/CustomError");
 const { getSocketInstance } = require("../utils/socket");
 const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
 const { parseOrderData } = require("../utils/ai/AiMethods");
-const { uploadMediaToS3 } = require("../utils/s3/s3Methods");
+const { uploadMediaToS3, deleteMediaFromS3 } = require("../utils/s3/s3Methods");
 const Orders = require('../schemas/order');
-const { dressColorStockHandler, updateDressActiveStatus } = require("../utils/dressStockMethods");
-const { purseColorStockHandler, updatePurseActiveStatus } = require("../utils/PurseStockMethods");
+const { dressColorStockHandler } = require("../utils/dressStockMethods");
+const { purseColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
+const { compareAndUpdate } = require('../utils/compareMethods');
 
 exports.addOrder = async(req, res, next) => {
   try{
@@ -236,3 +237,53 @@ exports.getOrdersByDate = async (req, res, next) => {
     return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)); 
   }
 }
+
+exports.updateOrder = async (req, res, next) => {
+  try {
+    const orderId = req.params.id;
+    const order = await Orders.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const { 
+      name,           // string 
+      address,        // string
+      phone,          // number
+    } = req.body;
+
+    const courier = JSON.parse(req.body.courier);
+    const products = JSON.parse(req.body.products);
+    const profileImage = req.file;
+    if(!profileImage){
+      return next(new CustomError('Informacije o slici nisu poslate zajedno sa podacima', 404));
+    }
+    const isReservation = req.body.isReservation === 'true' ? true : false;
+    const isPacked = req.body.isPacked === 'true' ? true : false;
+    const productsPrice = parseFloat(req.body.productsPrice);
+    const customPrice = parseFloat(req.body.customPrice);
+
+    order.buyer.name = compareAndUpdate(order.name, name);
+    order.buyer.address = compareAndUpdate(order.address, address);
+    order.buyer.phone = compareAndUpdate(order.phone, phone);
+    order.courier = compareAndUpdate(order.courier, courier);
+    order.products = compareAndUpdate(order.products, products);
+    order.reservation = compareAndUpdate(order.reservation, isReservation);
+    order.packed = compareAndUpdate(order.packed, isPacked);
+    order.productsPrice = compareAndUpdate(order.productsPrice, productsPrice);
+    order.totalPrice = compareAndUpdate(order.totalPrice, customPrice);
+    
+    if (profileImage && profileImage.originalname !== order.buyer.profileImage.imageName) {
+      await deleteMediaFromS3(order.buyer.profileImage.imageName);
+      const image = await uploadMediaToS3(profileImage, next);
+      order.buyer.profileImage = image;
+    }
+
+    await order.save();
+    res.status(200).json({ message: 'Porudžbina uspešno ažurirana' });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    console.error(error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja porudžbine', statusCode));
+  }
+};
