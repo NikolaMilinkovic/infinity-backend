@@ -15,6 +15,17 @@ const UserSchema = new Schema({
     type:String, 
     requred: [true, 'Please enter a valid role'], 
     default: 'admin' 
+  },
+  permissions: {
+    
+  },
+  settings: {
+    defaults: {
+      courier: {
+        type: String,
+        required: false
+      }
+    }
   }
 });
 

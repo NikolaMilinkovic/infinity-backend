@@ -70,6 +70,9 @@ app.post('/login', authModule.login);
 app.use(authModule.authenticateJWT);
 const io = getSocketInstance();
 
+const userRouter = require('./routers/user');
+app.use('/user', userRouter);
+
 const productsRouter = require('./routers/products');
 app.use('/products', productsRouter);
 

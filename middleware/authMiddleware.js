@@ -86,6 +86,6 @@ module.exports = function() {
     login,
     authenticateJWT,
     initializeAuth,
-    generateToken
+    generateToken,
   };
 };

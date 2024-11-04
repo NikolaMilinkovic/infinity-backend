@@ -1,0 +1,15 @@
+### Token reference
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmZkYjA4YzM2N2QzZmYxOGRkZmM2YmYiLCJpYXQiOjE3MzA2MzgxOTgsImV4cCI6MjA0NjIxNDE5OH0.oXEXuEWKIgnHTplIIsdLKbmqbDeu_0rkCnu-A_CLuF8
+
+### Simulate Login Request
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "username": "helvos",
+  "password": "helvos"
+}
+
+### Get User Settings
+GET http://localhost:3000/user/data
+Authorization: Bearer {{token}}
