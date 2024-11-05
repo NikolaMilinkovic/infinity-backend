@@ -20,6 +20,26 @@ function compareAndUpdate(oldValue, newValue) {
   return oldValue;
 }
 
+/**
+ * 
+ * @param {any} value1 
+ * @param {any} value2 
+ * @returns - True if they are the same | False if they are different
+ */
+function compareValues(value1, value2) {
+  if (typeof value1 === 'object' && typeof value2 === 'object') {
+    if (deepEqual(value1, value2)) {
+      return true;
+    }
+    return false;
+  }
+  if (value1 === value2) {
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   compareAndUpdate,
+  compareValues
 }

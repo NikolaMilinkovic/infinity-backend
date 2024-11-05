@@ -7,7 +7,7 @@ const Orders = require('../schemas/order');
 const { dressColorStockHandler } = require("../utils/dressStockMethods");
 const { purseColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
-const { compareAndUpdate } = require('../utils/compareMethods');
+const { compareAndUpdate, compareValues } = require('../utils/compareMethods');
 
 exports.addOrder = async(req, res, next) => {
   try{
@@ -252,16 +252,22 @@ exports.updateOrder = async (req, res, next) => {
       phone,          // number
     } = req.body;
 
-    const courier = JSON.parse(req.body.courier);
-    const products = JSON.parse(req.body.products);
     const profileImage = req.file;
-    if(!profileImage){
-      return next(new CustomError('Informacije o slici nisu poslate zajedno sa podacima', 404));
+    const courier = req.file ? JSON.parse(req.body.courier) : req.body.courier;
+    const products = req.file ? JSON.parse(req.body.products) : req.body.products;
+    const isReservation = req.file ? (req.body.isReservation === 'true' ? true : false) : req.body.isReservation;
+    const isPacked = req.file ? (req.body.isPacked === 'true' ? true : false) : req.body.isPacked;
+    const productsPrice = req.file ? parseFloat(req.body.productsPrice) : req.body.productsPrice;
+    const customPrice = req.file ? parseFloat(req.body.customPrice) : req.body.customPrice;
+
+    const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
+
+    if(removedProducts.length > 0){
+      // Za svaki proizvod povecaj stanje
     }
-    const isReservation = req.body.isReservation === 'true' ? true : false;
-    const isPacked = req.body.isPacked === 'true' ? true : false;
-    const productsPrice = parseFloat(req.body.productsPrice);
-    const customPrice = parseFloat(req.body.customPrice);
+    if(addedProducts.length > 0){
+      // Za svaki proizvod smanji stanje
+    }
 
     order.buyer.name = compareAndUpdate(order.name, name);
     order.buyer.address = compareAndUpdate(order.address, address);
@@ -279,7 +285,10 @@ exports.updateOrder = async (req, res, next) => {
       order.buyer.profileImage = image;
     }
 
-    await order.save();
+    const updatedOrder = await order.save();
+    const io = getSocketInstance();
+    io.emit('orderUpdated', updatedOrder);
+
     res.status(200).json({ message: 'Porudžbina uspešno ažurirana' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -287,3 +296,16 @@ exports.updateOrder = async (req, res, next) => {
     return next(new CustomError('Došlo je do problema prilikom ažuriranja porudžbine', statusCode));
   }
 };
+
+function compareProductArrays(oldProducts, newProducts) {
+  const oldProductIds = oldProducts.map(product => product._id);
+  const newProductIds = newProducts.map(product => product._id);
+
+  // Find removed products
+  const removedProducts = oldProductIds.filter(id => !newProductIds.includes(id));
+
+  // Find added products
+  const addedProducts = newProductIds.filter(id => !oldProductIds.includes(id));
+
+  return { removedProducts, addedProducts };
+}
