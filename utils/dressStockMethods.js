@@ -1,5 +1,6 @@
 const Dress = require('../schemas/dress');
 const DressColor = require('../schemas/dressColor');
+const mongoose = require('mongoose');
 const Purse = require('../schemas/purse');
 const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
@@ -43,6 +44,37 @@ async function dressColorStockHandler(colorId, sizeId, operation, value = 1, nex
   }
 }
 
+/**
+ * @param {Array<Object>} dressesArr - Array of objects with neccessary data for dress update
+ * Each object contains:
+ * - dressId: string
+ * - colorId: string
+ * - sizeId: string
+ * - increment: number
+ * @param {String} operation - can either be increment | decrement 
+ * @param {Function} next - callback function for error handling 
+ * @returns {Promise} - A promise resolving to the updated stock levels or an error.
+ */
+async function dressBatchColorStockHandler(dressesArr, operation, next) {
+  try {
+    const operations = dressesArr.map((item) => ({
+      updateOne: {
+        filter: { 
+          _id: new mongoose.Types.ObjectId(`${item.colorId}`),
+          'sizes._id': new mongoose.Types.ObjectId(`${item.sizeId}`)
+        },
+        update: { $inc: { 'sizes.$.stock': operation === 'increment' ? item.increment : -item.increment } }
+      }
+    }));
+
+    return await DressColor.collection.bulkWrite(operations);
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error updating purse batch stock:', error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja artikala', statusCode));
+  }
+}
+
 async function updateDressActiveStatus(dressId) {
   // Check if any color has stock greater than 0
   const dress = await Dress.findById(dressId).populate('colors');
@@ -62,7 +94,6 @@ async function updateDressActiveStatus(dressId) {
 
   return dress;
 }
-
 
 async function removeDressById(dressId){
   const dress = await Dress.findById(dressId).populate('colors');
@@ -105,6 +136,7 @@ async function removeDressById(dressId){
 
 module.exports = {
   dressColorStockHandler,
+  dressBatchColorStockHandler,
   updateDressActiveStatus,
   removeDressById
 };

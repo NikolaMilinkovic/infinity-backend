@@ -1,6 +1,7 @@
 const Purse = require('../schemas/purse');
 const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
+const mongoose = require('mongoose');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
 const { deleteMediaFromS3 } = require('./s3/s3Methods');
 const { getSocketInstance } = require('./socket');
@@ -35,6 +36,33 @@ async function purseColorStockHandler(colorId, operation, value = 1, next){
   }
 }
 
+/**
+ * @param {Array<Object>} pursesArr - Array of objects with neccessary data for purse update
+ * Each object contains:
+ * - orderId: string
+ * - colorId: string
+ * - increment: number
+ * @param {String} operation - can either be increment | decrement 
+ * @param {Function} next - callback function for error handling 
+ * @returns {Promise} - A promise resolving to the updated stock levels or an error.
+ */
+async function purseBatchColorStockHandler(pursesArr, operation, next) {
+  try {
+    const operations = pursesArr.map((item) => ({
+      updateOne: {
+        filter: { _id: new mongoose.Types.ObjectId(`${item.colorId}`) },
+        update: { $inc: { stock: operation === 'increment' ? item.increment : -item.increment } }
+      }
+    }));
+
+    return await PurseColor.collection.bulkWrite(operations);
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error updating purse batch stock:', error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja artikala', statusCode));
+  }
+}
+
 async function updatePurseActiveStatus(purseId) {
   // Check if any color has stock greater than 0
   const purse = await Purse.findById(purseId).populate('colors');
@@ -54,7 +82,6 @@ async function updatePurseActiveStatus(purseId) {
 
   return purse;
 }
-
 
 async function removePurseById(purseId){
   const purse = await Purse.findById(purseId).populate('colors');
@@ -97,6 +124,7 @@ async function removePurseById(purseId){
 
 module.exports = {
   purseColorStockHandler,
+  purseBatchColorStockHandler,
   updatePurseActiveStatus,
   removePurseById
 };

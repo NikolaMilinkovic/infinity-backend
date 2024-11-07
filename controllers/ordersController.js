@@ -4,8 +4,8 @@ const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
 const { parseOrderData } = require("../utils/ai/AiMethods");
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../utils/s3/s3Methods");
 const Orders = require('../schemas/order');
-const { dressColorStockHandler } = require("../utils/dressStockMethods");
-const { purseColorStockHandler } = require("../utils/PurseStockMethods");
+const { dressColorStockHandler, dressBatchColorStockHandler } = require("../utils/dressStockMethods");
+const { purseColorStockHandler, purseBatchColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
 const { compareAndUpdate, compareValues } = require('../utils/compareMethods');
 
@@ -255,18 +255,69 @@ exports.updateOrder = async (req, res, next) => {
     const profileImage = req.file;
     const courier = req.file ? JSON.parse(req.body.courier) : req.body.courier;
     const products = req.file ? JSON.parse(req.body.products) : req.body.products;
+    betterConsoleLog('> Logging out received products', products);
     const isReservation = req.file ? (req.body.isReservation === 'true' ? true : false) : req.body.isReservation;
     const isPacked = req.file ? (req.body.isPacked === 'true' ? true : false) : req.body.isPacked;
     const productsPrice = req.file ? parseFloat(req.body.productsPrice) : req.body.productsPrice;
     const customPrice = req.file ? parseFloat(req.body.customPrice) : req.body.customPrice;
-
     const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
 
+    // betterConsoleLog('> removedProducts: ', removedProducts);
+    // betterConsoleLog('> addedProducts: ', addedProducts);
+    // Increment the stock for each removed product from the order
+    const io = getSocketInstance();
     if(removedProducts.length > 0){
-      // Za svaki proizvod povecaj stanje
+      let dresses = [];
+      let purses = [];
+
+      for(const item of order.products){
+        if(removedProducts.some((id) => id.toString() === item._id.toString())){
+          let data;
+          // Get correct data object for stock increase
+          item.stockType === 'Boja-Veličina-Količina' ? 
+            data = getDressIncrementData(item) :
+            data = getPurseIncrementData(item);
+          // Push each data object to correct array based on stock type
+          item.stockType === 'Boja-Veličina-Količina' ? 
+            dresses.push(data) :
+            purses.push(data);
+        }
+      }
+      if(purses.length > 0) await purseBatchColorStockHandler(purses, 'increment', next);
+      if(dresses.length > 0) await dressBatchColorStockHandler(dresses, 'increment', next);
+
+      const data = {
+        dresses: dresses,
+        purses: purses
+      }
+      betterConsoleLog('> Logging data', data);
+      io.emit('batchStockIncrease', data);
     }
+
+    // TO DO > Decrease stock of each item as it is added in the order
     if(addedProducts.length > 0){
-      // Za svaki proizvod smanji stanje
+      let dresses = [];
+      let purses = [];
+
+      for(const item of addedProducts){
+        let data;
+        // Get correct data object for stock decrease
+        item.stockType === 'Boja-Veličina-Količina' ? 
+          data = getDressIncrementData(item) :
+          data = getPurseIncrementData(item);
+        // Push each data object to correct array based on stock type
+        item.stockType === 'Boja-Veličina-Količina' ? 
+          dresses.push(data) :
+          purses.push(data);
+      }
+      if(purses.length > 0) await purseBatchColorStockHandler(purses, 'decrement', next);
+      if(dresses.length > 0) await dressBatchColorStockHandler(dresses, 'decrement', next);
+      const data = {
+        dresses: dresses,
+        purses: purses
+      }
+      betterConsoleLog('> Added Products data for decrementing values on front is: ', data);
+      io.emit('batchStockDecrease', data);
     }
 
     order.buyer.name = compareAndUpdate(order.name, name);
@@ -286,7 +337,8 @@ exports.updateOrder = async (req, res, next) => {
     }
 
     const updatedOrder = await order.save();
-    const io = getSocketInstance();
+    console.log('Order Updated Socket called')
+    betterConsoleLog('> UPDATED ORDER IS', updatedOrder);
     io.emit('orderUpdated', updatedOrder);
 
     res.status(200).json({ message: 'Porudžbina uspešno ažurirana' });
@@ -298,14 +350,43 @@ exports.updateOrder = async (req, res, next) => {
 };
 
 function compareProductArrays(oldProducts, newProducts) {
-  const oldProductIds = oldProducts.map(product => product._id);
-  const newProductIds = newProducts.map(product => product._id);
+  // Get _id strings for products with an _id in oldProducts
+  const oldProductIds = oldProducts
+    .filter(product => product._id)
+    .map(product => product._id.toString());
 
-  // Find removed products
+  // Get _id strings for products with an _id in newProducts
+  const newProductIds = newProducts
+    .filter(product => product._id)
+    .map(product => product._id.toString());
+
+  // Find removed products by comparing old ids with new ids
   const removedProducts = oldProductIds.filter(id => !newProductIds.includes(id));
+  betterConsoleLog('> Removed Products are', removedProducts);
 
-  // Find added products
-  const addedProducts = newProductIds.filter(id => !oldProductIds.includes(id));
+  // Find added products by including products without _id and those with _id not in oldProductIds
+  const addedProducts = [
+    ...newProducts.filter(product => !product._id),  // Products without _id are new
+    ...newProducts.filter(product => product._id && !oldProductIds.includes(product._id.toString()))  // Products with _id not in oldProducts
+  ];
+
+  betterConsoleLog('> Added products are', addedProducts);
 
   return { removedProducts, addedProducts };
+}
+
+function getDressIncrementData(item){
+  return {
+    dressId: item.itemReference.toString(),
+    colorId: item.selectedColorId,
+    sizeId: item.selectedSizeId,
+    increment: 1,
+  }
+}
+function getPurseIncrementData(item){
+  return {
+    purseId: item.itemReference.toString(),
+    colorId: item.selectedColorId,
+    increment: 1,
+  }
 }
