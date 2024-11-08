@@ -1,6 +1,6 @@
 const express = require('express');
 const router = new express.Router();
-const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate, updateOrder } = require('../controllers/ordersController');
+const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate, updateOrder, setIndicatorToTrue, setIndicatorToFalse, packOrdersByIds } = require('../controllers/ordersController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
  
@@ -32,5 +32,17 @@ router
 router
   .route("/update/:id")
   .patch(upload.single('profileImage'), updateOrder)
+
+router
+  .route("/packed/set-indicator-to-true/:id")
+  .post(setIndicatorToTrue)
+
+router
+  .route("/packed/set-indicator-to-false/:id")
+  .post(setIndicatorToFalse)
+
+router
+  .route("/pack-orders")
+  .post(packOrdersByIds)
 
 module.exports = router;

@@ -66,6 +66,9 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('helvos', 'helvos');
 
+const { resetAllOrdersPackedState } = require('./utils/helperMethods');
+resetAllOrdersPackedState();
+
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // =====================[ \UNPROTECTED ROUTES ]=====================

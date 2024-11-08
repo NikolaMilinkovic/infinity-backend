@@ -8,6 +8,7 @@ const { dressColorStockHandler, dressBatchColorStockHandler } = require("../util
 const { purseColorStockHandler, purseBatchColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
 const { compareAndUpdate, compareValues } = require('../utils/compareMethods');
+const mongoose = require('mongoose');
 
 exports.addOrder = async(req, res, next) => {
   try{
@@ -20,22 +21,24 @@ exports.addOrder = async(req, res, next) => {
 
     // Parse values back to bool
     const reservation = req.body.reservation === 'true';
+    const packedIndicator = req.body.packed === 'true';
     const packed = req.body.packed === 'true';
     const processed = req.body.processed === 'true';
     const courier = JSON.parse(req.body.courier);
 
     if (
-      !buyerData                       || // Check if buyerData exists
-      !productData                     || // Check if productData exists (use ! instead of length check)
-      !Array.isArray(productData)      || // Ensure productData is an array
-      productData.length === 0         || // Check if productData is empty
-      !productsPrice                   || // Check if productsPrice exists
-      !totalPrice                      || // Check if totalPrice exists
-      typeof reservation !== 'boolean' || // Check if reservation is a boolean
-      typeof packed !== 'boolean'      || // Check if packed is a boolean
-      typeof processed !== 'boolean'   || // Check if processed is a boolean
-      !courier                         || // Check if courier exists
-      !req.file                           // Check if a file was uploaded
+      !buyerData                           || // Check if buyerData exists
+      !productData                         || // Check if productData exists (use ! instead of length check)
+      !Array.isArray(productData)          || // Ensure productData is an array
+      productData.length === 0             || // Check if productData is empty
+      !productsPrice                       || // Check if productsPrice exists
+      !totalPrice                          || // Check if totalPrice exists
+      typeof reservation !== 'boolean'     || // Check if reservation is a boolean
+      typeof packedIndicator !== 'boolean' || // Check if reservation is a boolean
+      typeof packed !== 'boolean'          || // Check if packed is a boolean
+      typeof processed !== 'boolean'       || // Check if processed is a boolean
+      !courier                             || // Check if courier exists
+      !req.file                               // Check if a file was uploaded
     ) {
       return next(new CustomError('Nepotpuni podaci za dodavanje nove porudžbine', 404));
     }
@@ -68,6 +71,7 @@ exports.addOrder = async(req, res, next) => {
       productsPrice: productsPrice,
       totalPrice: totalPrice,
       reservation: reservation,
+      packedIndicator: packed,
       packed: packed,
       processed: processed,
       courier: {
@@ -142,25 +146,37 @@ exports.addOrder = async(req, res, next) => {
 
 exports.getProcessedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ processed: true }).sort({ createdAt: -1 });
+    const orders = await Orders.find({ processed: true, reservation: false }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Procesovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error adding an order:', error);
-    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));  
+    betterErrorLog('> Error fetching processed orders:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));  
   }
 }
 
 exports.getUnprocessedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ processed: false });
+    const orders = await Orders.find({ processed: false, reservation: false });
     res.status(200).json({ message: 'Neprocesovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error adding an order:', error);
-    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));  
+    betterErrorLog('> Error fetching unprocessed orders:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));  
+  }
+}
+
+exports.getReservations = async(req, res, next) => {
+  try{
+    const reservations = await Orders.find({ reservation: true }).sort({ createdAt: -1 });
+    res.status(200).json({ message: 'Rezervacije uspešno preuzete', reservations });
+
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error fetching reservations:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja rezervacija', statusCode));  
   }
 }
 
@@ -204,8 +220,6 @@ exports.removeOrdersBatch = async (req, res, next) => {
 
 exports.getOrdersByDate = async (req, res, next) => {
   try{
-    console.log('> RUNNING GET ORDERS BY DATE')
-    console.log('date param is', req.params.date)
     const dateParam = req.params.date;
     const selectedDate = new Date(dateParam);
   
@@ -388,5 +402,57 @@ function getPurseIncrementData(item){
     purseId: item.itemReference.toString(),
     colorId: item.selectedColorId,
     increment: 1,
+  }
+}
+
+exports.setIndicatorToTrue = async (req, res, next) => {
+  try{
+    const { id } = req.params;
+    await Orders.findByIdAndUpdate(id, { packedIndicator: true });
+    const io = getSocketInstance();
+    io.emit('setStockIndicatorToTrue', id);
+
+    res.status(200).json({ message: 'Success' });
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    console.error(error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
+  }
+}
+
+exports.setIndicatorToFalse = async (req, res, next) => {
+  try{
+    const { id } = req.params;
+    await Orders.findByIdAndUpdate(id, { packedIndicator: false });
+    const io = getSocketInstance();
+    io.emit('setStockIndicatorToFalse', id);
+
+    res.status(200).json({ message: 'Success' });
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    console.error(error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
+  }
+}
+
+exports.packOrdersByIds = async (req, res, next) => {
+  try{
+    const { packedIds } = req.body;
+    betterConsoleLog('> Logging packed ids', packedIds);
+    const operations = packedIds.map((id) => ({
+      updateOne: {
+        filter: { _id: new mongoose.Types.ObjectId(`${id}`) },
+        update: { $set: { packed: true } }
+      }
+    }))
+    await Orders.collection.bulkWrite(operations);
+    const io = getSocketInstance();
+    io.emit('packOrdersByIds', packedIds);
+
+    return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    console.error(error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
 }

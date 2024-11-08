@@ -1,3 +1,4 @@
+const Order = require('../schemas/order');
 const User = require('../schemas/user')
 const bcrypt = require('bcryptjs');
 const { betterErrorLog } = require('./logMethods');
@@ -29,6 +30,26 @@ async function addUserOnStartup(username, plainPassword) {
   }
 }
 
+/**
+ * When called resets all orders packed & packedIndicator state to false
+ */
+async function resetAllOrdersPackedState() {
+  try {
+    // Update all orders to set packed and packedIndicator to false
+    const result = await Order.updateMany(
+      {}, // This selects all orders
+      { 
+        $set: { packed: false, packedIndicator: false } 
+      }
+    );
+    
+    console.log(`Successfully updated ${result.nModified} orders.`);
+  } catch (error) {
+    console.error("Error updating orders:", error);
+  }
+}
+
 module.exports = {
   addUserOnStartup,
+  resetAllOrdersPackedState
 };

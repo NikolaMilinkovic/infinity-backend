@@ -32,6 +32,7 @@ const OrderSchema = new Schema({
   productsPrice: { type: Number, required: [true, 'Products price is required'] },
   totalPrice: { type: Number, required: [true, 'Total price is required'] },
   reservation: { type: Boolean, default: false },
+  packedIndicator: { type: Boolean, default: false },
   packed: { type: Boolean, default: false },
   processed: { type: Boolean, default: false },
   courier: {

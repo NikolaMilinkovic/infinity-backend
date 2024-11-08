@@ -1,3 +1,11 @@
+function isJSON(value) {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 function betterConsoleLog(message, log){
   if(typeof log === 'string' && isJSON(log)){
     console.log(message, JSON.stringify(log, null, 2));
