@@ -5,7 +5,10 @@ const OrderSchema = new Schema({
   buyer: {
     name: { type: String, required: [true, 'Buyer name is required'] },
     address: { type: String, required: [true, 'Buyer address is required'] },
+    place: { type: String, require: [true, 'Buyers place / city is required']}, // NEW
     phone: { type: String, required: [true, 'Phone number is required'] },
+    phone2: { type: String, required: false },                                  // NEW
+    bankNumber: { type: String, required: false },                              // NEW
     profileImage: {
       uri: { type: String, required: [true, 'Image is required'] },
       imageName: { type: String, require: [true, 'Image Name is required'] },
@@ -31,6 +34,7 @@ const OrderSchema = new Schema({
   ],
   productsPrice: { type: Number, required: [true, 'Products price is required'] },
   totalPrice: { type: Number, required: [true, 'Total price is required'] },
+  value: { type: Number, required: false },                                     // NEW
   reservation: { type: Boolean, default: false },
   packedIndicator: { type: Boolean, default: false },
   packed: { type: Boolean, default: false },
@@ -39,6 +43,9 @@ const OrderSchema = new Schema({
     name: { type: String, required: false },
     deliveryPrice: { type: Number, required: false }
   },
+  weight: { type: String, required: [true, 'Weight is required'] },             // NEW
+  internalRemark: { type: String, required: false },                            // NEW
+  deliveryRemark: { type: String, required: false },                            // NEW
 }, { timestamps: true }); 
 
 OrderSchema.index({ reservation: 1 }); 

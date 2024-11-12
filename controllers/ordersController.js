@@ -9,6 +9,7 @@ const { purseColorStockHandler, purseBatchColorStockHandler } = require("../util
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
 const { compareAndUpdate, compareValues } = require('../utils/compareMethods');
 const mongoose = require('mongoose');
+const { SelectObjectContentRequestFilterSensitiveLog } = require("@aws-sdk/client-s3");
 
 exports.addOrder = async(req, res, next) => {
   try{
@@ -25,6 +26,19 @@ exports.addOrder = async(req, res, next) => {
     const packed = req.body.packed === 'true';
     const processed = req.body.processed === 'true';
     const courier = JSON.parse(req.body.courier);
+
+    const weight = req.body?.weight || 0.5;
+    const value = req.body?.value || '';
+    const internalRemark = req.body?.internalRemark || '';
+    const deliveryRemark = req.body?.deliveryRemark || '';
+
+    // buyer.place,
+    // buyer.phone2,
+    // buyer.bankNumber,
+    // value,
+    // weight,
+    // internalRemark,
+    // deliveryRemark,
 
     if (
       !buyerData                           || // Check if buyerData exists
@@ -61,7 +75,10 @@ exports.addOrder = async(req, res, next) => {
       buyer: {
         name: buyerData.name,
         address: buyerData.address,
+        place: buyerData?.place || '',
         phone: buyerData.phone,
+        phone2: buyerData?.phone2 || '',
+        bankNumber: buyerData?.bankNumber || '',
         profileImage: {
           uri: profileImage.uri,
           imageName: profileImage.imageName,
@@ -77,13 +94,17 @@ exports.addOrder = async(req, res, next) => {
       courier: {
         name: courier.name,
         deliveryPrice: courier.deliveryPrice
-      }
+      },
+      weight: weight,
+      value: value,
+      internalRemark: internalRemark,
+      deliveryRemark: deliveryRemark,
     });
 
     const newOrder = await order.save();
     const io = getSocketInstance();
     io.emit('orderAdded', newOrder);
-    // betterConsoleLog('> Logging New Order: ', newOrder);
+    betterConsoleLog('> Logging New Order: ', newOrder);
     
     // SOCKETS | Handles updates in the database & on client
     for(const product of productData){
@@ -146,7 +167,7 @@ exports.addOrder = async(req, res, next) => {
 
 exports.getProcessedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ processed: true, reservation: false }).sort({ createdAt: -1 });
+    const orders = await Orders.find({ processed: true }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Procesovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {
@@ -158,25 +179,13 @@ exports.getProcessedOrders = async(req, res, next) => {
 
 exports.getUnprocessedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ processed: false, reservation: false });
+    const orders = await Orders.find({ processed: false });
     res.status(200).json({ message: 'Neprocesovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching unprocessed orders:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));  
-  }
-}
-
-exports.getReservations = async(req, res, next) => {
-  try{
-    const reservations = await Orders.find({ reservation: true }).sort({ createdAt: -1 });
-    res.status(200).json({ message: 'Rezervacije uspešno preuzete', reservations });
-
-  } catch (error) {
-    const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error fetching reservations:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja rezervacija', statusCode));  
   }
 }
 
@@ -236,7 +245,8 @@ exports.getOrdersByDate = async (req, res, next) => {
       createdAt: {
         $gte: startOfDay,
         $lte: endOfDay
-      }
+      },
+      reservation: false
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
@@ -244,13 +254,47 @@ exports.getOrdersByDate = async (req, res, next) => {
       year: 'numeric'
     });
     
-    res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders })
-    return orders;
+    return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders })
   } catch(error) {
     const statusCode = error.statusCode || 500;
     return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)); 
   }
 }
+
+exports.getReservationsByDate = async (req, res, next) => {
+  try{
+    const dateParam = req.params.date;
+    const selectedDate = new Date(dateParam);
+  
+    if (isNaN(selectedDate.getTime())) {
+      return next(new CustomError('Nevažeći format datuma', 400));
+    }
+  
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+  
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    const reservations = await Orders.find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      },
+      reservation: true
+    });
+    const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    
+    return res.status(200).json({ message: `Rezervacije uspešno pronađene za datum ${formattedDate}`, reservations: reservations })
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    return next(new CustomError(`Došlo je do problema prilikom preuzimanja rezervacija za datum ${formattedDate}`, statusCode)); 
+  }
+}
+
 
 exports.updateOrder = async (req, res, next) => {
   try {
@@ -264,6 +308,9 @@ exports.updateOrder = async (req, res, next) => {
       name,           // string 
       address,        // string
       phone,          // number
+      phone2,         // number
+      bankNumber,     // string
+      place,          // string
     } = req.body;
 
     const profileImage = req.file;
@@ -274,6 +321,19 @@ exports.updateOrder = async (req, res, next) => {
     const isPacked = req.file ? (req.body.isPacked === 'true' ? true : false) : req.body.isPacked;
     const productsPrice = req.file ? parseFloat(req.body.productsPrice) : req.body.productsPrice;
     const customPrice = req.file ? parseFloat(req.body.customPrice) : req.body.customPrice;
+
+    const weight = req.body?.weight || 0.5;
+    const value = req.body?.value || '';
+    const internalRemark = req.body?.internalRemark || '';
+    const deliveryRemark = req.body?.deliveryRemark || '';
+
+    // buyer.place,
+    // buyer.phone2,
+    // buyer.bankNumber,
+    // value,
+    // weight,
+    // internalRemark,
+    // deliveryRemark,
     const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
 
     // betterConsoleLog('> removedProducts: ', removedProducts);
@@ -308,7 +368,6 @@ exports.updateOrder = async (req, res, next) => {
       io.emit('batchStockIncrease', data);
     }
 
-    // TO DO > Decrease stock of each item as it is added in the order
     if(addedProducts.length > 0){
       let dresses = [];
       let purses = [];
@@ -334,15 +393,29 @@ exports.updateOrder = async (req, res, next) => {
       io.emit('batchStockDecrease', data);
     }
 
-    order.buyer.name = compareAndUpdate(order.name, name);
-    order.buyer.address = compareAndUpdate(order.address, address);
-    order.buyer.phone = compareAndUpdate(order.phone, phone);
+    order.buyer.name = compareAndUpdate(order.buyer.name, name);
+    order.buyer.address = compareAndUpdate(order.buyer.address, address);
+    order.buyer.phone = compareAndUpdate(order.buyer.phone, phone);
     order.courier = compareAndUpdate(order.courier, courier);
     order.products = compareAndUpdate(order.products, products);
     order.reservation = compareAndUpdate(order.reservation, isReservation);
     order.packed = compareAndUpdate(order.packed, isPacked);
     order.productsPrice = compareAndUpdate(order.productsPrice, productsPrice);
     order.totalPrice = compareAndUpdate(order.totalPrice, customPrice);
+    // buyer.place,
+    // buyer.phone2,
+    // buyer.bankNumber,
+    // value,
+    // weight,
+    // internalRemark,
+    // deliveryRemark,
+    order.buyer.place = compareAndUpdate(order.buyer.place, place);
+    order.buyer.phone2 = compareAndUpdate(order.buyer.phone2, phone2);
+    order.buyer.bankNumber = compareAndUpdate(order.buyer.bankNumber, bankNumber);
+    order.value = compareAndUpdate(order.value, value);
+    order.weight = compareAndUpdate(order.weight, weight);
+    order.internalRemark = compareAndUpdate(order.internalRemark, internalRemark);
+    order.deliveryRemark = compareAndUpdate(order.deliveryRemark, deliveryRemark);
     
     if (profileImage && profileImage.originalname !== order.buyer.profileImage.imageName) {
       await deleteMediaFromS3(order.buyer.profileImage.imageName);
@@ -388,7 +461,6 @@ function compareProductArrays(oldProducts, newProducts) {
 
   return { removedProducts, addedProducts };
 }
-
 function getDressIncrementData(item){
   return {
     dressId: item.itemReference.toString(),
@@ -454,5 +526,51 @@ exports.packOrdersByIds = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     console.error(error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
+  }
+}
+
+exports.batchReservationsToCourier = async (req, res, next) => {
+  try{
+    const { courier, reservations } = req.body;
+    betterConsoleLog('> Loggign courier', courier);
+    betterConsoleLog('> Loggign reservations', reservations);
+    const operations = reservations.map((reservation) => ({
+      updateOne: {
+        filter: { _id: new mongoose.Types.ObjectId(`${reservation._id}`) },
+        update: [
+          { 
+            $set: { 
+              reservation: false,
+              courier: {
+                name: courier.name,
+                deliveryPrice: courier.deliveryPrice
+              },
+            }
+          },
+          {
+            $set: { 
+              totalPrice: { 
+                $add: [ '$productsPrice', courier.deliveryPrice ]
+              }
+            }
+          }
+        ]
+      }
+    }));
+
+    const io = getSocketInstance();
+    const data = {
+      courier,
+      reservations,
+    }
+    io.emit('reservationsToOrders', data);
+
+    const result = await Orders.bulkWrite(operations);
+    res.status(200).json({ mesasge: 'Rezervacije uspešno prebačene u porudžbine' })
+
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    console.error(error);
+    return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode));
   }
 }

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = new express.Router();
-const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate, updateOrder, setIndicatorToTrue, setIndicatorToFalse, packOrdersByIds } = require('../controllers/ordersController');
+const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate, updateOrder, setIndicatorToTrue, setIndicatorToFalse, packOrdersByIds, getReservations, getReservationsByDate, batchReservationsToCourier } = require('../controllers/ordersController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
  
@@ -16,6 +16,10 @@ router
 router
   .route("/fetch-by-date/:date")
   .get(getOrdersByDate)
+
+router
+  .route("/fetch-reservations-by-date/:date")
+  .get(getReservationsByDate)
 
 router
   .route("/unprocessed")
@@ -44,5 +48,9 @@ router
 router
   .route("/pack-orders")
   .post(packOrdersByIds)
+
+router
+  .route("/reservations-to-orders")
+  .post(batchReservationsToCourier)
 
 module.exports = router;

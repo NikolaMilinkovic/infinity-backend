@@ -16,6 +16,10 @@ async function resizeImage(buffer, x = 1080, y = 1920){
   return await sharp(buffer).resize({width: x, height: y, fit:'contain'}).toBuffer();
 }
 
+function getCurrentDate(){
+  return new Date().toLocaleDateString("en-UK").replace(/\//g, '-');
+}
+
 async function uploadMediaToS3(file, next) {
   try {
     // const modifiedImageBuffer = await resizeImage(file.buffer, 240, 320);
@@ -67,4 +71,34 @@ async function deleteMediaFromS3(imageName){
   }
 }
 
-module.exports = { uploadMediaToS3, deleteMediaFromS3 };
+async function uploadFileToS3(file, next) {
+  try{
+    const fileName = `statistics-for-${getCurrentDate()}.xlsx`;
+    const params = {
+      Bucket: bucket_name,
+      Key: fileName,
+      Body: file.buffer,
+      ACL: 'public-read',
+      ContentType: file.mimeType,
+    };
+    const command = new PutObjectCommand(params);
+    const s3_response = await s3.send(command);
+
+    if (s3_response.$metadata.httpStatusCode === 200) {
+      const response = {
+        uri: `https://${bucket_name}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${fileName}`,
+        fileName: fileName
+      };
+      return response;
+    } else {
+      return next(new CustomError('There was a problem uploading the Excel file', s3_response.$metadata.httpStatusCode));
+    }
+    
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error uploading file to the s3 bucket:', error);
+    return next(new CustomError('Došlo je do problema prilikom uploadovanja fajla', statusCode));
+  }
+}
+
+module.exports = { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 };
