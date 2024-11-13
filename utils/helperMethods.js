@@ -49,7 +49,24 @@ async function resetAllOrdersPackedState() {
   }
 }
 
+async function resetAllOrdersProcessedState() {
+  try {
+    // Update all orders to set processed false
+    const result = await Order.updateMany(
+      {}, // This selects all orders
+      { 
+        $set: { processed: false } 
+      }
+    );
+    
+    console.log(`Successfully updated ${result.nModified} orders.`);
+  } catch (error) {
+    console.error("Error updating orders:", error);
+  }
+}
+
 module.exports = {
   addUserOnStartup,
-  resetAllOrdersPackedState
+  resetAllOrdersPackedState,
+  resetAllOrdersProcessedState
 };

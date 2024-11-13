@@ -2,14 +2,15 @@ const CustomError = require("../utils/CustomError");
 const { getSocketInstance } = require("../utils/socket");
 const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
 const { parseOrderData } = require("../utils/ai/AiMethods");
-const { uploadMediaToS3, deleteMediaFromS3 } = require("../utils/s3/s3Methods");
+const { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 } = require("../utils/s3/s3Methods");
 const Orders = require('../schemas/order');
 const { dressColorStockHandler, dressBatchColorStockHandler } = require("../utils/dressStockMethods");
 const { purseColorStockHandler, purseBatchColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
 const { compareAndUpdate, compareValues } = require('../utils/compareMethods');
 const mongoose = require('mongoose');
-const { SelectObjectContentRequestFilterSensitiveLog } = require("@aws-sdk/client-s3");
+const ProcessedOrdersForPeriod = require('../schemas/processedOrdersForPeriod');
+
 
 exports.addOrder = async(req, res, next) => {
   try{
@@ -573,4 +574,251 @@ exports.batchReservationsToCourier = async (req, res, next) => {
     console.error(error);
     return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode));
   }
+}
+
+exports.parseOrdersForLatestPeriod = async (req, res, next) => {
+  try{
+    const { fileName, fileData, courier } = req.body;
+    let uploadedFile;
+    if (fileData) {
+      const buffer = Buffer.from(fileData, 'base64');
+      uploadedFile = await uploadFileToS3({ buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }, next);
+      // uri & fileName
+      betterConsoleLog('> Uploaded file', uploadedFile);
+    }
+    // Get all orders that are active, not a reservation, and for specific courier
+    const orders = await Orders.find({ processed: false, reservation: false, 'courier.name': courier  });
+    betterConsoleLog('Logging orders:', orders.length);
+    const totalSalesValue = getTotalSalesValue(orders);
+    const averageOrderValue = getAverageOrderValue(totalSalesValue, orders.length);
+    const salesPerStockType = getSalesPerStockType(orders);
+    const performer = getTopAndWorstPerformingProducts(orders);
+    const numOfOrdersByCategory = getNumberOfOrdersByCategory(orders);
+    const perColorSold = getPerColorSold(orders);
+    const perLocationSales = getPerLocationSales(orders);
+    const perProductStats = getPerProductStats(orders);
+
+    const newProcessedOrder = new ProcessedOrdersForPeriod({
+      fileName: fileName,
+      excellLink: uploadedFile.uri,
+      courierName: courier,
+      numOfOrders: orders.length,
+      totalSalesValue: totalSalesValue,
+      averageOrderValue: averageOrderValue,
+      salesPerStockType: salesPerStockType,
+      topSellingProducts: performer.top,
+      leastSellingProducts: performer.worst,
+      numOfOrdersByCategory: numOfOrdersByCategory,
+      perColorSold: perColorSold,
+      perLocationSales: perLocationSales,
+      perProductStats: perProductStats,
+    });
+    await newProcessedOrder.save();
+
+    // Update each order processed field to true
+    const orderIds = orders.map(order => order._id);
+    await Orders.updateMany(
+      { _id: { $in: orderIds } },
+      { $set: { processed: true } }
+    );
+
+    const io = getSocketInstance();
+    io.emit('processOrdersByIds', orderIds);
+    return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
+  } catch (error){
+    const statusCode = error.statusCode || 500;
+    console.error(error);
+    return next(new CustomError('Došlo je do problema prilikom parsiranja porudžbina i generisanja exell-a', statusCode));
+  }
+}
+
+function getTotalSalesValue(orders){
+  let totalSalesValue = 0;
+  for(const order of orders){
+    totalSalesValue += order.totalPrice;
+  }
+  return totalSalesValue;
+}
+function getAverageOrderValue(totalSalesValue, numOfOrders){
+  return Math.round(totalSalesValue / numOfOrders);
+}
+function getTopAndWorstPerformingProducts(orders){
+  let productSales = {};
+
+  for(const order of orders) {
+    for(const product of order.products){
+      if(productSales[product.itemReference]){
+        productSales[product.itemReference] += 1;
+      } else {
+        productSales[product.itemReference] = 1;
+      }
+    }
+  }
+  const top = Object.entries(productSales)
+                    .sort((a, b) => b[1] - a[1]).slice(0, 3)
+                    .map(([id, amountSold]) => ({
+                      id,
+                      amountSold
+                    }));
+  const worst = Object.entries(productSales)
+                      .sort((a, b) => a[1] - b[1]).slice(0, 3)
+                      .map(([id, amountSold]) => ({
+                        id,
+                        amountSold
+                      }));
+
+  return {top, worst}; 
+}
+function getNumberOfOrdersByCategory(orders){
+  let ordersPerCategory = {};
+
+  for(const order of orders) {
+    for(const product of order.products){
+      if(ordersPerCategory[product.category]){
+        ordersPerCategory[product.category].totalValue += product.price;
+        ordersPerCategory[product.category].amountSold += 1;
+      } else {
+        ordersPerCategory[product.category] = {
+          category: product.category,
+          totalValue: product.price,
+          amountSold: 1
+        };
+      }
+    }
+  }
+
+  const sortedData = Object.values(ordersPerCategory).sort((a, b) => b.amountSold - a.amountSold);
+  return sortedData;
+}
+function getPerColorSold(orders){
+  let perColor = {};
+
+  for(const order of orders){
+    for(const product of order.products){
+      if(perColor[product.selectedColor]){
+        perColor[product.selectedColor].amountSold += 1;
+      } else {
+        perColor[product.selectedColor] = {
+          color: product.selectedColor,
+          amountSold: 1,
+        }
+      }
+    }
+  }
+
+  const sortedData = Object.values(perColor).sort((a, b) => b.amountSold - a.amountSold);
+  return sortedData;
+}
+function getPerLocationSales(orders){
+  let perLocation = {};
+
+  for(const order of orders){
+    if(perLocation[order.buyer.place]){
+      perLocation[order.buyer.place].amountSold += 1;
+      perLocation[order.buyer.place].totalValue += order.totalPrice;
+    } else {
+      perLocation[order.buyer.place] = {
+        location: order.buyer.place,
+        amountSold: 1,
+        totalValue: order.totalPrice,
+      }
+    }
+  }
+  const sortedData = Object.values(perLocation).sort((a, b) => b.amountSold - a.amountSold);
+  return sortedData;
+}
+function getPerProductStats(orders){
+  let perProduct = {};
+
+  for(const order of orders){
+    for(const product of order.products){
+      if(perProduct[product.itemReference]){
+        perProduct[product.itemReference].productTotalSalesValue += product.price;
+        perProduct[product.itemReference].amountSold += 1;
+        // handle selected size update
+        if (product.selectedSize) {
+          const sizeSold = perProduct[product.itemReference].perSizeSold.find(
+            (sizeRecord) => sizeRecord.size === product.selectedSize
+          );
+          if (sizeSold) {
+            sizeSold.amountSold += 1;
+          } else {
+            perProduct[product.itemReference].perSizeSold.push({
+              size: product.selectedSize,
+              amountSold: 1,
+            });
+          }
+        }
+        // handle selected color update
+        if (product.selectedColor) {
+          const colorSold = perProduct[product.itemReference].perColorSold.find(
+            (colorRecord) => colorRecord.color === product.selectedColor
+          );
+          if (colorSold) {
+            colorSold.amountSold += 1;
+          } else {
+            perProduct[product.itemReference].perColorSold.push({
+              color: product.selectedColor,
+              amountSold: 1,
+            });
+          }
+        }
+
+      } else {
+        perProduct[product.itemReference] = {
+          productReference: product.itemReference,
+          productName: product.name,
+          productCategory: product.category,
+          productPrice: product.price,
+          productTotalSalesValue: product.price,
+          amountSold: 1,
+          productImage: product.image,
+          perSizeSold: product.selectedSize
+          ? [{ size: product.selectedSize, amountSold: 1 }]
+          : [],
+          perColorSold: product.selectedColor
+          ? [{ color: product.selectedColor, amountSold: 1 }]
+          : [],
+        }
+      }
+    }
+  }
+
+  const sortedData = Object.values(perProduct).sort((a, b) => b.amountSold - a.amountSold);
+  return sortedData;
+}
+function getSalesPerStockType(orders) {
+  let perStockType = {};
+  let checkedOrders = orders;
+  for(const order of checkedOrders){
+    for(const product of order.products){
+      if(!product.stockType){
+        if(product.selectedSize){
+          product.stockType = 'Boja-Veličina-Količina'
+        } else {
+          product.stockType = 'Boja-Veličina'
+        }
+      }
+    }
+  }
+
+  for (const order of checkedOrders) {
+    for (const product of order.products) {
+      if (product.stockType) {
+        if (perStockType[product.stockType]) {
+          perStockType[product.stockType].amountSold += 1;
+          perStockType[product.stockType].totalValue += product.price;
+        } else {
+          perStockType[product.stockType] = {
+            stockType: product.stockType,
+            amountSold: 1,
+            totalValue: product.price,
+          };
+        }
+      }
+    }
+  }
+
+  const sortedData = Object.values(perStockType).sort((a, b) => b.amountSold - a.amountSold);
+  return sortedData;
 }

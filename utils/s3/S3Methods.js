@@ -73,7 +73,7 @@ async function deleteMediaFromS3(imageName){
 
 async function uploadFileToS3(file, next) {
   try{
-    const fileName = `statistics-for-${getCurrentDate()}.xlsx`;
+    const fileName = `orders-for-${getCurrentDate()}.xlsx`;
     const params = {
       Bucket: bucket_name,
       Key: fileName,

@@ -51,5 +51,6 @@ const OrderSchema = new Schema({
 OrderSchema.index({ reservation: 1 }); 
 OrderSchema.index({ processed: 1 }); 
 OrderSchema.index({ packed: 1 }); 
+OrderSchema.index({ processed: 1, reservation: 1, 'courier.name': 1 });
 
 module.exports = mongoose.model("Order", OrderSchema);

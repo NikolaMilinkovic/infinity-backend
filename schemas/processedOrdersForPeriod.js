@@ -1,20 +1,43 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const OrdersStatsForPeriodSchema = new Schema({
+const ProcessedOrdersForPeriodSchema = new Schema({
   fileName: { type: String, required: [true, 'Filename is required'] },
   excellLink: { type: String, required: [true, 'Excell link is required'] },
   courierName: { type: String, required: [true, 'Courier is required'] },
   numOfOrders: { type: Number, required: [true, 'Num of orders is required'] },
   totalSalesValue: { type: Number, required: [true, 'Total sales value is required'] },
   averageOrderValue: { type: Number, required: [true, 'Average order value is required'] },
-  topSellingProducts: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
-  leastSellingProducts: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
+  salesPerStockType: [
+    {
+      stockType: { type: String, required: [true, 'StockType is required'] },
+      amountSold: { type: Number, required: [true, 'salesPerStockType.amountSold is required'] },
+      totalValue: { type: Number, required: [true, 'salesPerStockType.totalValue is required'] },
+    }
+  ],
+  topSellingProducts: [
+    {
+      id: { type: Schema.Types.ObjectId, ref: 'Product' },
+      amountSold: { type: Number, required: [false] },
+    }
+  ],
+  leastSellingProducts: [
+    {
+      id: { type: Schema.Types.ObjectId, ref: 'Product' },
+      amountSold: { type: Number, required: [false] },
+    }
+  ],
   numOfOrdersByCategory: [
     {
       category: { type: String, required: [false] },
-      amountSold: { type: String, required: [false] },
+      amountSold: { type: Number, required: [false] },
       totalValue: { type: Number, required: [false] },
+    }
+  ],
+  perColorSold: [
+    {
+      color: { type: String, required: [false] },
+      amountSold: { type: Number, required: [false] },
     }
   ],
 
@@ -24,7 +47,8 @@ const OrdersStatsForPeriodSchema = new Schema({
       productName: { type: String, required: [true, 'Product name is required'] },
       productCategory: { type: String, required: [true, 'Product  category is required'] },
       productPrice: { type: Number, required: [true, 'Product price is required'] },
-      productSumSold: { type: Number, required: [true, 'Product Sum Sold is required'] },
+      productTotalSalesValue: { type: Number, required: [true, 'productTotalSalesValue is required'] },
+      amountSold: { type: Number, required: [false] },
       productImage: {
         uri: { type: String, required: [true, 'Image is required'] },
         imageName: { type: String, require: [true, 'Image Name is required'] },
@@ -32,25 +56,18 @@ const OrdersStatsForPeriodSchema = new Schema({
       perSizeSold: [
         {
           size: { type: String, required: [false] },
-          amountSold: { type: String, required: [false] },
+          amountSold: { type: Number, required: [false] },
         }
       ],
       perColorSold: [
         {
           color: { type: String, required: [false] },
-          amountSold: { type: String, required: [false] },
+          amountSold: { type: Number, required: [false] },
         }
       ],
-      perBuyerLocation: [
-        {
-          location: { type: String, required: [false] },
-          amountSold: { type: Number, required: [false] },
-          totalValue: { type: Number, required: [false] },      
-        }
-      ]
     }
   ],
-  perLocationStatus: [
+  perLocationSales: [
     {
       location: { type: String, required: [false] },
       amountSold: { type: Number, required: [false] },
@@ -59,4 +76,4 @@ const OrdersStatsForPeriodSchema = new Schema({
   ]
 }, { timestamps: true }); 
 
-module.exports = mongoose.model("OrdersStatsForPeriod", OrdersStatsForPeriodSchema);
+module.exports = mongoose.model("ProcessedOrdersForPeriod", ProcessedOrdersForPeriodSchema);
