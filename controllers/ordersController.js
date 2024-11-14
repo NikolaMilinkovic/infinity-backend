@@ -190,6 +190,18 @@ exports.getUnprocessedOrders = async(req, res, next) => {
   }
 }
 
+exports.getUnpackedOrders = async(req, res, next) => {
+  try{
+    const orders = await Orders.find({ packed: false, packedIndicator: false });
+    res.status(200).json({ message: 'Nespakovane porudžbine uspešno preuzete', orders });
+
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error fetching unpacked orders:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja nespakovanih porudžbina', statusCode));  
+  }
+}
+
 exports.parseOrder = async(req, res, next) => {
   try{
     const { orderData } = req.body;
