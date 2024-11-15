@@ -7,7 +7,7 @@ const Orders = require('../schemas/order');
 const { dressColorStockHandler, dressBatchColorStockHandler } = require("../utils/dressStockMethods");
 const { purseColorStockHandler, purseBatchColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
-const { compareAndUpdate, compareValues } = require('../utils/compareMethods');
+const { compareAndUpdate } = require('../utils/compareMethods');
 const mongoose = require('mongoose');
 const ProcessedOrdersForPeriod = require('../schemas/processedOrdersForPeriod');
 
@@ -329,7 +329,6 @@ exports.updateOrder = async (req, res, next) => {
     const profileImage = req.file;
     const courier = req.file ? JSON.parse(req.body.courier) : req.body.courier;
     const products = req.file ? JSON.parse(req.body.products) : req.body.products;
-    betterConsoleLog('> Logging out received products', products);
     const isReservation = req.file ? (req.body.isReservation === 'true' ? true : false) : req.body.isReservation;
     const isPacked = req.file ? (req.body.isPacked === 'true' ? true : false) : req.body.isPacked;
     const productsPrice = req.file ? parseFloat(req.body.productsPrice) : req.body.productsPrice;
@@ -340,17 +339,8 @@ exports.updateOrder = async (req, res, next) => {
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
 
-    // buyer.place,
-    // buyer.phone2,
-    // buyer.bankNumber,
-    // value,
-    // weight,
-    // internalRemark,
-    // deliveryRemark,
     const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
 
-    // betterConsoleLog('> removedProducts: ', removedProducts);
-    // betterConsoleLog('> addedProducts: ', addedProducts);
     // Increment the stock for each removed product from the order
     const io = getSocketInstance();
     if(removedProducts.length > 0){
@@ -636,6 +626,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
 
     const io = getSocketInstance();
     io.emit('processOrdersByIds', orderIds);
+    io.emit('getProcessedOrdersStatistics', newProcessedOrder);
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
   } catch (error){
     const statusCode = error.statusCode || 500;
@@ -654,32 +645,41 @@ function getTotalSalesValue(orders){
 function getAverageOrderValue(totalSalesValue, numOfOrders){
   return Math.round(totalSalesValue / numOfOrders);
 }
-function getTopAndWorstPerformingProducts(orders){
+function getTopAndWorstPerformingProducts(orders) {
   let productSales = {};
 
-  for(const order of orders) {
-    for(const product of order.products){
-      if(productSales[product.itemReference]){
-        productSales[product.itemReference] += 1;
+  for (const order of orders) {
+    for (const product of order.products) {
+      if (productSales[product.itemReference]) {
+        productSales[product.itemReference].amountSold += 1;
       } else {
-        productSales[product.itemReference] = 1;
+        productSales[product.itemReference] = {
+          name: product.name,
+          amountSold: 1
+        };
       }
     }
   }
+
   const top = Object.entries(productSales)
-                    .sort((a, b) => b[1] - a[1]).slice(0, 3)
-                    .map(([id, amountSold]) => ({
+                    .sort(([, a], [, b]) => b.amountSold - a.amountSold)
+                    .slice(0, 3)
+                    .map(([id, { name, amountSold }]) => ({
                       id,
+                      name,
                       amountSold
                     }));
+
   const worst = Object.entries(productSales)
-                      .sort((a, b) => a[1] - b[1]).slice(0, 3)
-                      .map(([id, amountSold]) => ({
+                      .sort(([, a], [, b]) => a.amountSold - b.amountSold)
+                      .slice(0, 3)
+                      .map(([id, { name, amountSold }]) => ({
                         id,
+                        name,
                         amountSold
                       }));
 
-  return {top, worst}; 
+  return { top, worst };
 }
 function getNumberOfOrdersByCategory(orders){
   let ordersPerCategory = {};

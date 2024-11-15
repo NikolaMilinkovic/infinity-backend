@@ -18,12 +18,14 @@ const ProcessedOrdersForPeriodSchema = new Schema({
   topSellingProducts: [
     {
       id: { type: Schema.Types.ObjectId, ref: 'Product' },
+      name: { type: String, required: false },
       amountSold: { type: Number, required: [false] },
     }
   ],
   leastSellingProducts: [
     {
       id: { type: Schema.Types.ObjectId, ref: 'Product' },
+      name: { type: String, required: false },
       amountSold: { type: Number, required: [false] },
     }
   ],

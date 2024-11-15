@@ -8,6 +8,7 @@ const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/s3Methods
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 const { removePurseById } = require("../../utils/PurseStockMethods");
 const { removeDressById } = require("../../utils/dressStockMethods");
+const { compareAndUpdate } = require('../../utils/compareMethods');
 
 exports.removeProductBatch = async (req, res, next) => {
   try{
@@ -35,7 +36,6 @@ exports.removeProductBatch = async (req, res, next) => {
 
 exports.updateProduct = async (req, res, next) => {
   try{
-    console.log('> Update product called')
     const {
       previousStockType,
       active,
@@ -48,8 +48,11 @@ exports.updateProduct = async (req, res, next) => {
     const { id } = req.params;
     const io = getSocketInstance();
 
+    
     let product;
     let colorsArray = Array.isArray(colors) ? colors : JSON.parse(colors);
+    // betterConsoleLog('> Logging out received colors', colorsArray[0].sizes);
+    // return res.status(200);
     const newImageData = req.file;
     let image;
 
@@ -64,10 +67,10 @@ exports.updateProduct = async (req, res, next) => {
     if (newImageData) {
       // If an image is uploaded, handle it
       if (newImageData.imageName === product.image.imageName) {
-        image = product.image; // Keep the current image if it's unchanged
+        image = product.image;
       } else {
         image = await uploadMediaToS3(req.file, next);
-        await deleteMediaFromS3(product.image.imageName); // Delete the old image
+        await deleteMediaFromS3(product.image.imageName);
       }
     } else {
       // If no new image is provided, keep the existing image
@@ -77,11 +80,11 @@ exports.updateProduct = async (req, res, next) => {
 
     // COMPARE PRODUCT STOCK TYPE
     if(stockType !== previousStockType){
-      const colorIdsForDeletion = product.colors;
+      const colorIdsForUpdate = product.colors;
       // DIFFERENT STOCK TYPE
       // Remove all product color objects & remove the product | Socket update clients
       if(product.stockType === 'Boja-Veličina-Količina'){
-        await DressColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
+        await DressColor.deleteMany({ _id: { $in: colorIdsForUpdate }});
         await Dress.findByIdAndDelete(product._id);
         if(io){
           if(product.active){
@@ -118,7 +121,7 @@ exports.updateProduct = async (req, res, next) => {
         }
       }
       if(product.stockType === 'Boja-Količina'){
-        await PurseColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
+        await PurseColor.deleteMany({ _id: { $in: colorIdsForUpdate }});
         await Purse.findByIdAndDelete(product._id);
         if(io){
           if(product.active){
@@ -158,75 +161,57 @@ exports.updateProduct = async (req, res, next) => {
 
       return res.status(200).json({ message: 'Proizvod je uspešno ažuriran' });
     } else {
-      const colorIdsForDeletion = product.colors;
+
+      // Same stock type, just update the fields and create new DressColor objects
       if(product.stockType === 'Boja-Veličina-Količina'){
-        await DressColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
-        await Dress.findByIdAndDelete(product._id);
-        if(io){
-          if(product.active){
-            io.emit('activeProductRemoved', product._id);
-            io.emit('activeDressRemoved', product._id);
-          } else {
-            io.emit('inactiveProductRemoved', product._id);
-            io.emit('inactiveDressRemoved', product._id);
-          }
-        }
+        const colorIdsForUpdate = product.colors;
+        await DressColor.deleteMany({ _id: { $in: colorIdsForUpdate }});
         const insertedColors = await DressColor.insertMany(colorsArray);
         const colorIds = insertedColors.map((color) => color._id);
-        const newDress = new Dress({
-          name: name,
-          active: active,
-          category: category,
-          stockType: stockType,
-          price: price,
-          colors: colorIds,
-          image: image,
-        });
-    
-        const result = await newDress.save();
-        const populatedDress = await Dress.findById(result._id).populate('colors');
+
+        product.name = compareAndUpdate(product.name, name);
+        product.image = compareAndUpdate(product.image, image);
+        product.active = compareAndUpdate(product.active, active);
+        product.price = compareAndUpdate(product.price, price);
+        product.category = compareAndUpdate(product.category, category);
+        product.stockType = compareAndUpdate(product.stockType, stockType);
+        product.colors = colorIds;
+        const updatedProduct = await product.save();
+        const fetchedUpdatedProduct = await Dress.findById({ _id: updatedProduct._id }).populate('colors');
+        
         if(io){
-          if(active){
-            io.emit('activeProductAdded', populatedDress);
-            io.emit('activeDressAdded', populatedDress);
+          if(product.active){
+            io.emit('activeProductUpdated', fetchedUpdatedProduct);
           } else {
-            io.emit('inactiveProductAdded', populatedDress);
-            io.emit('inactiveDressAdded', populatedDress);
+            io.emit('inactiveProductUpdated', fetchedUpdatedProduct);
           }
         }
       }
+
       if(product.stockType === 'Boja-Količina'){
-        await PurseColor.deleteMany({ _id: { $in: colorIdsForDeletion }});
-        await Purse.findByIdAndDelete(product._id);
+        const colorIdsForUpdate = product.colors;
+        await PurseColor.deleteMany({ _id: { $in: colorIdsForUpdate }});
+        const insertedColors = await PurseColor.insertMany(colorsArray);
+        betterConsoleLog('> insertedColors', insertedColors);
+        const colorIds = insertedColors.map((color) => color._id);
+
+        product.name = compareAndUpdate(product.name, name);
+        product.image = compareAndUpdate(product.image, image);
+        product.active = compareAndUpdate(product.active, active);
+        product.price = compareAndUpdate(product.price, price);
+        product.category = compareAndUpdate(product.category, category);
+        product.stockType = compareAndUpdate(product.stockType, stockType);
+        product.colors = colorIds;
+
+        const updatedProduct = await product.save();
+        const fetchedUpdatedProduct = await Purse.findById({ _id: updatedProduct._id }).populate('colors');
+        betterConsoleLog('> fetchedUpdatedProduct', fetchedUpdatedProduct);
+
         if(io){
           if(product.active){
-            io.emit('activeProductRemoved', product._id);
-            io.emit('activePurseRemoved', product._id);
+            io.emit('activeProductUpdated', fetchedUpdatedProduct);
           } else {
-            io.emit('inactiveProductRemoved', product._id);
-            io.emit('inactivePurseRemoved', product._id);
-          }
-        }
-        const insertedColors = await PurseColor.insertMany(colorsArray);
-        const colorIds = insertedColors.map((color) => color._id);
-        const newPurse = new Purse({
-          name: name,
-          active: active,
-          category: category,
-          stockType: stockType,
-          price: price,
-          colors: colorIds,
-          image: image,
-        });
-        const result = await newPurse.save();
-        const populatedPurse = await Purse.findById(result._id).populate('colors');
-        if(io){
-          if(active){
-            io.emit('activeProductAdded', populatedPurse);
-            io.emit('activePurseAdded', populatedPurse);
-          } else {
-            io.emit('inactiveProductAdded', populatedPurse);
-            io.emit('inactivePurseAdded', populatedPurse);
+            io.emit('inactiveProductUpdated', fetchedUpdatedProduct);
           }
         }
       }
