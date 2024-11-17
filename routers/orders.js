@@ -1,6 +1,6 @@
 const express = require('express');
 const router = new express.Router();
-const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate, updateOrder, setIndicatorToTrue, setIndicatorToFalse, packOrdersByIds, getReservations, getReservationsByDate, batchReservationsToCourier, parseOrdersForLatestPeriod, getUnpackedOrders } = require('../controllers/ordersController');
+const { parseOrder, addOrder, getProcessedOrders, getUnprocessedOrders, removeOrdersBatch, getOrdersByDate, updateOrder, setIndicatorToTrue, setIndicatorToFalse, packOrdersByIds, getReservations, getReservationsByDate, batchReservationsToCourier, parseOrdersForLatestPeriod, getUnpackedOrders, getOrderStatisticFilesForPeriod } = require('../controllers/ordersController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
  
@@ -60,5 +60,9 @@ router
 router
   .route("/parse-orders-for-latest-period")
   .post(parseOrdersForLatestPeriod)
+
+router
+  .route('/get-order-statistic-files-for-period')
+  .get(getOrderStatisticFilesForPeriod)
 
 module.exports = router;

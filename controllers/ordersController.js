@@ -4,6 +4,7 @@ const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
 const { parseOrderData } = require("../utils/ai/AiMethods");
 const { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 } = require("../utils/s3/s3Methods");
 const Orders = require('../schemas/order');
+const ProcessedOrders = require('../schemas/processedOrdersForPeriod');
 const { dressColorStockHandler, dressBatchColorStockHandler } = require("../utils/dressStockMethods");
 const { purseColorStockHandler, purseBatchColorStockHandler } = require("../utils/PurseStockMethods");
 const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
@@ -833,4 +834,24 @@ function getSalesPerStockType(orders) {
 
   const sortedData = Object.values(perStockType).sort((a, b) => b.amountSold - a.amountSold);
   return sortedData;
+}
+
+exports.getOrderStatisticFilesForPeriod = async (req, res, next) => {
+  try {
+    const today = new Date();
+    const startOf30DaysAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30);
+    
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const files = await ProcessedOrders.find({
+      createdAt: { $gte: startOf30DaysAgo, $lte: endOfToday }
+    });
+
+    res.status(200).json({ message: 'Podaci uspešno preuzeti', data: files });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error fetching processed orders for period:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja procesovanih porudžbina / statistike', statusCode));
+  }
 }
