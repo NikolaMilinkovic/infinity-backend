@@ -2,7 +2,7 @@ const CustomError = require("../../utils/CustomError");
 const Purse = require('../../schemas/purse');
 const { getSocketInstance } = require('../../utils/socket');
 const PurseColor = require('../../schemas/purseColor');
-const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/s3Methods");
+const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 
 // ADD NEW PURSE

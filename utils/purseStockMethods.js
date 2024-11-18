@@ -3,7 +3,7 @@ const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
 const mongoose = require('mongoose');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
-const { deleteMediaFromS3 } = require('./s3/s3Methods');
+const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
 const { getSocketInstance } = require('./socket');
 
 
