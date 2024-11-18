@@ -2,7 +2,7 @@ const CustomError = require("../../utils/CustomError");
 const Dress = require("../../schemas/dress");
 const { getSocketInstance } = require('../../utils/socket');
 const DressColor = require("../../schemas/dressColor");
-const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/s3Methods");
+const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 
 // ADD NEW DRESS
