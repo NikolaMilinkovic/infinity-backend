@@ -6,7 +6,7 @@ const Purse = require("../../schemas/purse")
 const PurseColor = require("../../schemas/purseColor")
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
-const { removePurseById } = require("../../utils/PurseStockMethods");
+const { removePurseById } = require("../../utils/purseStockMethods");
 const { removeDressById } = require("../../utils/dressStockMethods");
 const { compareAndUpdate } = require('../../utils/compareMethods');
 
