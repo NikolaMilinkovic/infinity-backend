@@ -1,5 +1,4 @@
 const CustomError = require("../utils/CustomError");
-const { getSocketInstance } = require("../utils/socket");
 const Category = require('../schemas/category');
 const { betterErrorLog } = require("../utils/logMethods");
 
@@ -24,7 +23,7 @@ exports.addCategory = async(req, res, next) => {
       stockType: category.stockType
     });
     const response = await newCategory.save();
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
 
     if(io){
       console.log('> Emiting an update to all devices for new category: ', newCategory.name);
@@ -52,7 +51,7 @@ exports.deleteCategory = async(req, res, next) => {
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for category deletion: ', deletedCategory.name);
       io.emit('categoryRemoved', deletedCategory._id);
@@ -79,7 +78,7 @@ exports.updateCategory = async(req, res, next) => {
     );
 
     // Handle socket update
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting an update to all devices for category update: ', updatedCategory.name);
       io.emit('categoryUpdated', updatedCategory);

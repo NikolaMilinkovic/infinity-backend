@@ -1,6 +1,5 @@
 const CustomError = require("../../utils/CustomError");
 const Purse = require('../../schemas/purse');
-const { getSocketInstance } = require('../../utils/socket');
 const PurseColor = require('../../schemas/purseColor');
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
@@ -44,7 +43,7 @@ exports.addPurse = async (req, res, next) => {
     const populatedPurse = await Purse.findById(result._id).populate('colors');
 
     // Initiate socket updates
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io) {
       betterConsoleLog(`> Emiting update to all devices for new purse ${populatedPurse.name}`, populatedPurse);
       io.emit('activePurseAdded', populatedPurse);
@@ -107,7 +106,7 @@ exports.deletePurse = async(req, res, next) => {
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       if (purse.active) {
         console.log('> Deleting an active purse');

@@ -7,7 +7,6 @@ const multer = require('multer');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
-const { getSocketInstance } = require('./utils/socket');
 
 const app = express();
 // ===============[ CORS Options ]=============== //
@@ -64,11 +63,7 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
-// addUserOnStartup('helvos', 'helvos');
-
-const { resetAllOrdersPackedState, resetAllOrdersProcessedState } = require('./utils/helperMethods');
-resetAllOrdersPackedState();
-resetAllOrdersProcessedState();
+// addUserOnStartup('username', 'password');
 
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
@@ -77,7 +72,6 @@ app.post('/login', authModule.login);
 
 // =====================[ PROTECTED ROUTERS ]======================
 app.use(authModule.authenticateJWT);
-const io = getSocketInstance();
 
 const appRouter = require('./routers/appRouter');
 app.use('/app', appRouter);

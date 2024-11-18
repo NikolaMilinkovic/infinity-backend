@@ -4,7 +4,6 @@ const CustomError = require('./CustomError');
 const mongoose = require('mongoose');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
 const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
-const { getSocketInstance } = require('./socket');
 
 
 async function purseColorStockHandler(colorId, operation, value = 1, next){
@@ -104,7 +103,7 @@ async function removePurseById(purseId){
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       if (purse.active) {
         console.log('> Deleting an active purse');

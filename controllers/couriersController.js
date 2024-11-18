@@ -1,7 +1,6 @@
 const Courier = require('../schemas/courier');
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog } = require('../utils/logMethods');
-const { getSocketInstance } = require('../utils/socket');
 
 
 // GET ALL COURIERS
@@ -25,7 +24,7 @@ exports.addCourier = async(req, res, next) => {
     })
 
     const response = await newCourier.save();
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for new courier: ', newCourier.name);
       io.emit('courierAdded', newCourier);
@@ -54,7 +53,7 @@ exports.updateCourier = async(req, res, next) => {
     );
 
     // Handle socket update
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting an update to all devices for courier update: ', updatedCourier.name);
       io.emit('courierUpdated', updatedCourier);
@@ -81,7 +80,7 @@ exports.deleteCourier = async(req, res, next) => {
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for courier deletion: ', deleterCourier.name);
       io.emit('courierRemoved', deleterCourier._id);

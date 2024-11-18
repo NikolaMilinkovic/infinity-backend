@@ -1,7 +1,6 @@
 const Color = require('../schemas/color');
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog } = require('../utils/logMethods');
-const { getSocketInstance } = require('../utils/socket');
 
 
 // GET ALL COLORS
@@ -25,7 +24,7 @@ exports.addColor = async(req, res, next) => {
     })
 
     const response = await newColor.save();
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for new color: ', newColor.name);
       io.emit('colorAdded', newColor);
@@ -54,7 +53,7 @@ exports.updateColor = async(req, res, next) => {
     );
 
     // Handle socket update
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting an update to all devices for color update: ', updatedColor.name);
       io.emit('colorUpdated', updatedColor);
@@ -82,7 +81,7 @@ exports.deleteColor = async(req, res, next) => {
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for color deletion: ', deletedColor.name);
       io.emit('colorRemoved', deletedColor._id);

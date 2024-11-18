@@ -1,5 +1,4 @@
 const CustomError = require("../../utils/CustomError");
-const { getSocketInstance } = require('../../utils/socket');
 const Dress = require("../../schemas/dress");
 const DressColor = require("../../schemas/dressColor");
 const Purse = require("../../schemas/purse")
@@ -46,7 +45,7 @@ exports.updateProduct = async (req, res, next) => {
       colors
     } = req.body;
     const { id } = req.params;
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
 
     
     let product;

@@ -6,7 +6,6 @@ const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
 const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
-const { getSocketInstance } = require('./socket');
 
 
 async function dressColorStockHandler(colorId, sizeId, operation, value = 1, next){
@@ -116,7 +115,7 @@ async function removeDressById(dressId){
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       if (dress.active) {
         console.log('> Deleting an active dress');

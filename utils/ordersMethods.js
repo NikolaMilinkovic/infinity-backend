@@ -1,7 +1,6 @@
 const Order = require('../schemas/order');
 const DressColor = require('../schemas/dressColor');
 const PurseColor = require('../schemas/purseColor');
-const { getSocketInstance } = require('./socket');
 const CustomError = require('./CustomError');
 const { betterConsoleLog } = require('./logMethods');
 const mongoose = require('mongoose');
@@ -103,7 +102,7 @@ async function removeOrderById(orderId) {
     await session.commitTransaction();
 
     // SOCKET HANDLING - after successful transaction
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       // Emit order removal
       io.emit('orderRemoved', orderId);
@@ -263,7 +262,7 @@ async function removeBatchOrdersById(orderIds) {
 
     // Handle socket updates after successful transaction
     const data = { dresses: dressItems, purses: purseItems };
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting socket updates...');
       io.emit('orderBatchRemoved', orderIds);

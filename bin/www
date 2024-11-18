@@ -24,6 +24,7 @@ app.set('port', port);
 
 const server = http.createServer(app);
 const io = setupSocket(server);
+app.locals.io = io;
 
 /**
  * Listen on provided port, on all network interfaces.

@@ -1,5 +1,4 @@
 const CustomError = require("../utils/CustomError");
-const { getSocketInstance } = require("../utils/socket");
 const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
 const { parseOrderData } = require("../utils/ai/AiMethods");
 const { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 } = require("../utils/s3/S3DefaultMethods");
@@ -104,7 +103,7 @@ exports.addOrder = async(req, res, next) => {
     });
 
     const newOrder = await order.save();
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     io.emit('orderAdded', newOrder);
     betterConsoleLog('> Logging New Order: ', newOrder);
     
@@ -343,7 +342,7 @@ exports.updateOrder = async (req, res, next) => {
     const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
 
     // Increment the stock for each removed product from the order
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(removedProducts.length > 0){
       let dresses = [];
       let purses = [];
@@ -485,7 +484,7 @@ exports.setIndicatorToTrue = async (req, res, next) => {
   try{
     const { id } = req.params;
     await Orders.findByIdAndUpdate(id, { packedIndicator: true });
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     io.emit('setStockIndicatorToTrue', id);
 
     res.status(200).json({ message: 'Success' });
@@ -500,7 +499,7 @@ exports.setIndicatorToFalse = async (req, res, next) => {
   try{
     const { id } = req.params;
     await Orders.findByIdAndUpdate(id, { packedIndicator: false });
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     io.emit('setStockIndicatorToFalse', id);
 
     res.status(200).json({ message: 'Success' });
@@ -522,7 +521,7 @@ exports.packOrdersByIds = async (req, res, next) => {
       }
     }))
     await Orders.collection.bulkWrite(operations);
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     io.emit('packOrdersByIds', packedIds);
 
     return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
@@ -562,7 +561,7 @@ exports.batchReservationsToCourier = async (req, res, next) => {
       }
     }));
 
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     const data = {
       courier,
       reservations,
@@ -625,7 +624,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
       { $set: { processed: true } }
     );
 
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     io.emit('processOrdersByIds', orderIds);
     io.emit('getProcessedOrdersStatistics', newProcessedOrder);
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });

@@ -1,6 +1,5 @@
 const CustomError = require("../../utils/CustomError");
 const Dress = require("../../schemas/dress");
-const { getSocketInstance } = require('../../utils/socket');
 const DressColor = require("../../schemas/dressColor");
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
@@ -38,7 +37,7 @@ exports.addDress = async (req, res, next) => {
 
     const result = await newDress.save();
     const populatedDress = await Dress.findById(result._id).populate('colors');
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if(io) {
       betterConsoleLog(`> Logging out the newly added dress ${populatedDress.name}`, populatedDress);
       io.emit('activeDressAdded', populatedDress);
@@ -103,7 +102,7 @@ exports.deleteDress = async(req, res, next) => {
     }
 
     // SOCKET HANDLING
-    const io = getSocketInstance();
+    const io = req.app.locals.io;
     if (io) {
       if (dress.active) {
         console.log('> Deleting an active dress');
