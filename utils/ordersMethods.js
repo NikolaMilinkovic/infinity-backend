@@ -11,7 +11,7 @@ const mongoose = require('mongoose');
  * @param {string} orderId
  * @returns {Promise<Object|null>}
  */
-async function removeOrderById(orderId) {
+async function removeOrderById(orderId, req) {
   // Start a MongoDB session for transaction
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -137,10 +137,9 @@ async function removeOrderById(orderId) {
  * @param {string[]} orderIds
  * @returns {Promise<{ acknowledged: boolean, deletedCount: number }>}
  */
-async function removeBatchOrdersById(orderIds) {
+async function removeBatchOrdersById(orderIds, req) {
   console.log('> removeBatchOrdersById method called, removing...');
   
-  // Start a MongoDB session for transaction
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -150,13 +149,12 @@ async function removeBatchOrdersById(orderIds) {
       throw new CustomError('No orders found with the provided IDs', 404);
     }
 
-    // Maps to track updates
     const dressColorUpdates = new Map();
     const purseColorUpdates = new Map();
     const dressItems = [];
     const purseItems = [];
 
-    // Process all orders and collect updates
+    // Process orders and collect updates
     for (const order of fetchedOrders) {
       if (!order.products || !order.products.length) {
         console.warn(`Order ${order._id} has no products`);
@@ -174,11 +172,10 @@ async function removeBatchOrdersById(orderIds) {
             dressId: product.itemReference,
             colorId: product.selectedColorId,
             sizeId: product.selectedSizeId,
-            increment: product.quantity || 1, // Consider actual quantity
+            increment: product.quantity || 1,
           };
           dressItems.push(dressUpdateData);
 
-          // Group updates by colorId and sizeId
           const key = `${product.selectedColorId}-${product.selectedSizeId}`;
           if (!dressColorUpdates.has(key)) {
             dressColorUpdates.set(key, { 
@@ -207,7 +204,7 @@ async function removeBatchOrdersById(orderIds) {
       }
     }
 
-    // Update dress stocks
+    // Process dress color updates
     const dressUpdates = await Promise.all(
       Array.from(dressColorUpdates.values()).map(async ({ colorId, sizeId, increment }) => {
         const colorItem = await DressColor.findById(colorId).session(session);
@@ -222,7 +219,7 @@ async function removeBatchOrdersById(orderIds) {
 
         console.log(`Updating DressColor ${colorId} Size ${sizeId}: ${size.stock} += ${increment}`);
         size.stock += increment;
-        
+
         if (size.stock < 0) {
           throw new CustomError(`Invalid stock update would result in negative stock for DressColor ${colorId} Size ${sizeId}`, 400);
         }
@@ -232,7 +229,7 @@ async function removeBatchOrdersById(orderIds) {
       })
     );
 
-    // Update purse stocks
+    // Process purse color updates
     const purseUpdates = await Promise.all(
       Array.from(purseColorUpdates.entries()).map(async ([colorId, increment]) => {
         const colorItem = await PurseColor.findById(colorId).session(session);
@@ -260,7 +257,7 @@ async function removeBatchOrdersById(orderIds) {
     // Commit transaction
     await session.commitTransaction();
 
-    // Handle socket updates after successful transaction
+    // Emit socket events for updates
     const data = { dresses: dressItems, purses: purseItems };
     const io = req.app.locals.io;
     if (io) {
@@ -272,13 +269,16 @@ async function removeBatchOrdersById(orderIds) {
     return deletedOrders;
 
   } catch (error) {
-    // Rollback transaction on error
+    // If there's an error, rollback the transaction
     await session.abortTransaction();
+    console.error('Error during batch order delete:', error);
     throw error;
   } finally {
+    // End the session
     session.endSession();
   }
 }
+
 module.exports = {
   removeOrderById,
   removeBatchOrdersById

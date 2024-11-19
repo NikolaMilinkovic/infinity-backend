@@ -14,32 +14,20 @@ const ProcessedOrdersForPeriod = require('../schemas/processedOrdersForPeriod');
 
 exports.addOrder = async(req, res, next) => {
   try{
-
-    // return res.status(200).json({ message: 'Temp response 200 to prevent going through whole addOrder api' })
     const buyerData = JSON.parse(req.body.buyerData);
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
     const totalPrice = parseFloat(req.body.totalPrice);
-
     // Parse values back to bool
     const reservation = req.body.reservation === 'true';
     const packedIndicator = req.body.packed === 'true';
     const packed = req.body.packed === 'true';
     const processed = req.body.processed === 'true';
     const courier = JSON.parse(req.body.courier);
-
     const weight = req.body?.weight || 0.5;
     const value = req.body?.value || '';
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
-
-    // buyer.place,
-    // buyer.phone2,
-    // buyer.bankNumber,
-    // value,
-    // weight,
-    // internalRemark,
-    // deliveryRemark,
 
     if (
       !buyerData                           || // Check if buyerData exists
@@ -105,60 +93,67 @@ exports.addOrder = async(req, res, next) => {
     const newOrder = await order.save();
     const io = req.app.locals.io;
     io.emit('orderAdded', newOrder);
-    betterConsoleLog('> Logging New Order: ', newOrder);
+    let dressUpdateData = [];
+    let purseUpdateData = [];
+    // betterConsoleLog('> Logging New Order: ', newOrder);
     
     // SOCKETS | Handles updates in the database & on client
     for(const product of productData){
-      if(product.stockType === 'Boja-Veličina-Količina'){
-        // Update the dress stock in DB
-        const updatedItem = await dressColorStockHandler(product.selectedColorId, product.selectedSizeId, 'decrement', 1, next)
-        if(!updatedItem) return;
-
-        // Check and update item status if needed
-        // Commented out because we want to see when item is out of stock
-        // If item is not active it will not be displayed in browse products
-        // const checkedItem = await updateDressActiveStatus(product.itemReference._id);
-        // if(!checkedItem) return;
-
-        // Emit new dress stock
-        const dressData = {
-          stockType: product.stockType,
-          dressId: product.itemReference,
-          colorId: product.selectedColorId,
-          sizeId: product.selectedSizeId,
-          decrement: 1
+      try{
+        if(product.stockType === 'Boja-Veličina-Količina'){
+          // Update the dress stock in DB
+          const updatedItem = await dressColorStockHandler(product.selectedColorId, product.selectedSizeId, 'decrement', 1, next)
+          if(!updatedItem) return;
+  
+          // Check and update item status if needed
+          // Commented out because we want to see when item is out of stock
+          // If item is not active it will not be displayed in browse products
+          // const checkedItem = await updateDressActiveStatus(product.itemReference._id);
+          // if(!checkedItem) return;
+  
+          // Emit new dress stock
+          const dressData = {
+            stockType: product.stockType,
+            dressId: product.itemReference,
+            colorId: product.selectedColorId,
+            sizeId: product.selectedSizeId,
+            decrement: 1
+          }
+          dressUpdateData.push(dressData);
+        } else {
+  
+          // Update the purse stock in DB
+          const updatedItem = await purseColorStockHandler(product.selectedColorId, 'decrement', 1, next)
+          if(!updatedItem) return;
+  
+          // Check and update item status if needed
+          // Commented out because we want to see when item is out of stock
+          // If item is not active it will not be displayed in browse products
+          // const checkedItem = await updatePurseActiveStatus(product.itemReference._id);
+          // if(!checkedItem) return;
+  
+          // Emit new purse stock
+          const purseData = {
+            stockType: product.stockType,
+            purseId: product.itemReference,
+            colorId: product.selectedColorId,
+            decrement: 1
+          }
+          purseUpdateData.push(purseData);
         }
-        io.emit('allProductStockDecrease', dressData);
-        io.emit('handleDressStockDecrease', dressData);
-
-
-        // Call socket active to unactive update for all devices
-      } else {
-
-        // Update the purse stock in DB
-        const updatedItem = await purseColorStockHandler(product.selectedColorId, 'decrement', 1, next)
-        if(!updatedItem) return;
-
-        // Check and update item status if needed
-        // Commented out because we want to see when item is out of stock
-        // If item is not active it will not be displayed in browse products
-        // const checkedItem = await updatePurseActiveStatus(product.itemReference._id);
-        // if(!checkedItem) return;
-
-        // Emit new purse stock
-        const purseData = {
-          stockType: product.stockType,
-          purseId: product.itemReference,
-          colorId: product.selectedColorId,
-          decrement: 1
-        }
-        io.emit('allProductStockDecrease', purseData);
-        io.emit('handlePurseStockDecrease', purseData);
+      } catch(error) {
+        console.error(error);
       }
     }
-
-
-    res.status(200).json({ message: 'Porudžbina uspešno dodata' });
+    if(dressUpdateData.length > 0){
+      io.emit('handleDressStockDecrease', dressUpdateData);
+      io.emit('allProductStockDecrease', dressUpdateData);
+    }
+    if(purseUpdateData.length > 0){
+      io.emit('handlePurseStockDecrease', purseUpdateData);
+      io.emit('allProductStockDecrease', purseUpdateData);
+    }
+    return res.status(200).json({ message: 'Porudžbina uspešno dodata' });
   } catch(error){
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding an order:', error);
@@ -227,8 +222,8 @@ exports.removeOrdersBatch = async (req, res, next) => {
 
     betterConsoleLog('> Logging out data', orderIds);
     let response;
-    if(orderIds.length === 1) response = await removeOrderById(orderIds[0]);
-    if(orderIds.length > 1) response = await removeBatchOrdersById(orderIds);
+    if(orderIds.length === 1) response = await removeOrderById(orderIds[0], req);
+    if(orderIds.length > 1) response = await removeBatchOrdersById(orderIds, req);
     
     // betterConsoleLog('> Logging order removal response', response);
     res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
@@ -627,6 +622,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     const io = req.app.locals.io;
     io.emit('processOrdersByIds', orderIds);
     io.emit('getProcessedOrdersStatistics', newProcessedOrder);
+    io.emit('addNewStatisticFile', newProcessedOrder);
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
   } catch (error){
     const statusCode = error.statusCode || 500;
@@ -845,7 +841,7 @@ exports.getOrderStatisticFilesForPeriod = async (req, res, next) => {
 
     const files = await ProcessedOrders.find({
       createdAt: { $gte: startOf30DaysAgo, $lte: endOfToday }
-    });
+    }).sort({ createdAt: -1});
 
     res.status(200).json({ message: 'Podaci uspešno preuzeti', data: files });
   } catch (error) {

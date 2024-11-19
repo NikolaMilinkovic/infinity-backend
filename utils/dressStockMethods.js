@@ -94,10 +94,11 @@ async function updateDressActiveStatus(dressId) {
   return dress;
 }
 
-async function removeDressById(dressId){
-  const dress = await Dress.findById(dressId).populate('colors');
+async function removeDressById(dressId, req){
+  try{
+    const dress = await Dress.findById(dressId).populate('colors');
   if (!dress) {
-    throw new Error('Purse not found for id ' + dressId);
+    throw new Error('Dress not found for id ' + dressId);
   }
 
       // Delete all DressColors objects from DB
@@ -131,6 +132,9 @@ async function removeDressById(dressId){
     }
 
     return true;
+  } catch(error){
+    console.error(error);
+  }
 }
 
 module.exports = {

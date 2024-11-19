@@ -17,10 +17,10 @@ exports.removeProductBatch = async (req, res, next) => {
     for(const item of data){
       console.log('> Deleting for item', item._id, item.stockType);
       if(item.stockType === 'Boja-Veličina-Količina'){
-        await removeDressById(item._id);
+        await removeDressById(item._id, req);
       }
       if(item.stockType === 'Boja-Količina'){
-        await removePurseById(item._id);
+        await removePurseById(item._id, req);
       }
     }
   
