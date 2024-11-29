@@ -67,6 +67,7 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
+// app.post('/verify-user', authModule.verifyUser);
 // =====================[ \UNPROTECTED ROUTES ]=====================
 
 

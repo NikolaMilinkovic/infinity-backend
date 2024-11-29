@@ -28,6 +28,7 @@ exports.addOrder = async(req, res, next) => {
     const value = req.body?.value || '';
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
+    const orderNotes = req.body?.orderNotes || '';
 
     if (
       !buyerData                           || // Check if buyerData exists
@@ -88,6 +89,7 @@ exports.addOrder = async(req, res, next) => {
       value: value,
       internalRemark: internalRemark,
       deliveryRemark: deliveryRemark,
+      orderNotes: orderNotes,
     });
 
     const newOrder = await order.save();
@@ -199,12 +201,16 @@ exports.getUnpackedOrders = async(req, res, next) => {
 
 exports.parseOrder = async(req, res, next) => {
   try{
+    console.log('> Parse order called');
     const { orderData } = req.body;
     if(!orderData){
       return next(new CustomError(`Došlo je do problema prilikom parsiranja podataka o kupcu.`, 400));
     }
 
     const response = await JSON.parse(await parseOrderData(orderData));
+    console.log('> Logging response');
+    console.log(response);
+    betterConsoleLog('> LOGGING PARSED DATA RESPONSE', response);
     
     res.status(200).json({ message: `Podaci su uspešno parsirani`, data: response });
 

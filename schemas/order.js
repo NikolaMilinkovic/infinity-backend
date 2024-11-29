@@ -46,6 +46,7 @@ const OrderSchema = new Schema({
   weight: { type: String, required: [true, 'Weight is required'] },             // NEW
   internalRemark: { type: String, required: false },                            // NEW
   deliveryRemark: { type: String, required: false },                            // NEW
+  orderNotes: { type: String, required: false },                                // NEW
 }, { timestamps: true }); 
 
 OrderSchema.index({ reservation: 1 }); 

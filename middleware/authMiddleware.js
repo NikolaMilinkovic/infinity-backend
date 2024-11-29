@@ -82,6 +82,15 @@ module.exports = function() {
     return token;
   }
 
+  function verifyUser(req, res, next){
+    try{
+      const { username, password, token } = req.body;
+    } catch(error) {
+      betterErrorLog('> Error logging in a user:', error);
+      return next(new CustomError("Doslo je do problema prilikom verifikacije korisnika.", 401));
+    }
+  }
+
   return {
     login,
     authenticateJWT,
