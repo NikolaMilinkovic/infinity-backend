@@ -45,7 +45,7 @@ async function parseOrderData(data){
                         description: "Buyers secondary phone number that might appear in the input, if not provided return null for that field, remove all empty spaces from phone number if there are any.",
                         type: Number
                       },
-                      orderNote: {
+                      orderNotes: {
                         description: 'Input here any special notes that are related to the order, it could be something to do with the urgency of the order, something special about the products and sizes or anything else that looks like it is a special order note. If this data is not provided return null for this field. Be carefull not to put in here anything that is not indicative of special note that we are putting for this order. Meaning things like poručila bih je, uzela bih ovu, svidja mi se ova etc. As buyer is sending us a message we dont want the extra text to go in here. Also be carefull not to place the price if provided in here.',
                       }
                   },

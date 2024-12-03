@@ -61,7 +61,7 @@ exports.addPurse = async (req, res, next) => {
 
 exports.getAllActivePurses = async(req, res, next) => {
   try{
-    const purses = await Purse.find({ active: true }).populate('colors');
+    const purses = await Purse.find({ active: true }).populate('colors').sort({ _id: -1 });
     res.status(200).json(purses);
 
   } catch(error){
@@ -73,7 +73,7 @@ exports.getAllActivePurses = async(req, res, next) => {
 
 exports.getAllInactivePurses = async(req, res, next) => {
   try{
-    const purses = await Purse.find({ active: false }).populate('colors');
+    const purses = await Purse.find({ active: false }).populate('colors').sort({ _id: -1 });
     res.status(200).json(purses);
 
   } catch(error){
@@ -97,7 +97,7 @@ exports.deletePurse = async(req, res, next) => {
     }
 
     // Delete image from s3 bucket
-    await deleteMediaFromS3(purse.image.imageName);
+    // await deleteMediaFromS3(purse.image.imageName);
 
     // Delete the Purse object
     const deletedPurse = await Purse.findByIdAndDelete(id);

@@ -55,7 +55,7 @@ exports.addDress = async (req, res, next) => {
 // GET ACTIVE DRESSES
 exports.getAllActiveDresses = async(req, res, next) => {
   try{
-    const dresses = await Dress.find({ active: true }).populate('colors');
+    const dresses = await Dress.find({ active: true }).populate('colors').sort({ _id: -1 });
     res.status(200).json(dresses);
 
   } catch(error){
@@ -68,7 +68,7 @@ exports.getAllActiveDresses = async(req, res, next) => {
 // GET INACTIVE DRESSES
 exports.getAllInactiveDresses = async(req, res, next) => {
   try{
-    const dresses = await Dress.find({ active: false }).populate('colors');
+    const dresses = await Dress.find({ active: false }).populate('colors').sort({ _id: -1 });
     res.status(200).json(dresses);
 
   } catch(error){
@@ -93,7 +93,7 @@ exports.deleteDress = async(req, res, next) => {
     }
 
     // Delete image from s3 bucket
-    await deleteMediaFromS3(dress.image.imageName);
+    // await deleteMediaFromS3(dress.image.imageName);
 
     // Delete the Dress object
     const deletedDress = await Dress.findByIdAndDelete(id);

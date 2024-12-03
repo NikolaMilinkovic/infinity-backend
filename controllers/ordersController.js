@@ -10,10 +10,12 @@ const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMetho
 const { compareAndUpdate } = require('../utils/compareMethods');
 const mongoose = require('mongoose');
 const ProcessedOrdersForPeriod = require('../schemas/processedOrdersForPeriod');
+const { normalizeReservationDate } = require('../utils/dateMethods');
 
 
 exports.addOrder = async(req, res, next) => {
   try{
+    console.log('> Add order called');
     const buyerData = JSON.parse(req.body.buyerData);
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
@@ -29,6 +31,7 @@ exports.addOrder = async(req, res, next) => {
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
     const orderNotes = req.body?.orderNotes || '';
+    const reservationDate = normalizeReservationDate(req.body?.reservationDate) || '';
 
     if (
       !buyerData                           || // Check if buyerData exists
@@ -90,7 +93,13 @@ exports.addOrder = async(req, res, next) => {
       internalRemark: internalRemark,
       deliveryRemark: deliveryRemark,
       orderNotes: orderNotes,
+      reservationDate: reservationDate,
     });
+    if (reservation) {
+      order.reservationDate = reservationDate;
+    } else {
+      order.reservationDate = new Date();
+    }
 
     const newOrder = await order.save();
     const io = req.app.locals.io;
@@ -177,7 +186,7 @@ exports.getProcessedOrders = async(req, res, next) => {
 
 exports.getUnprocessedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ processed: false });
+    const orders = await Orders.find({ processed: false }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Neprocesovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {
@@ -189,7 +198,7 @@ exports.getUnprocessedOrders = async(req, res, next) => {
 
 exports.getUnpackedOrders = async(req, res, next) => {
   try{
-    const orders = await Orders.find({ packed: false, packedIndicator: false });
+    const orders = await Orders.find({ packed: false, packedIndicator: false }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Nespakovane porudžbine uspešno preuzete', orders });
 
   } catch (error) {
@@ -284,16 +293,13 @@ exports.getReservationsByDate = async (req, res, next) => {
       return next(new CustomError('Nevažeći format datuma', 400));
     }
   
-    const startOfDay = new Date(selectedDate);
-    startOfDay.setUTCHours(0, 0, 0, 0);
+    const queryDate = new Date(selectedDate);
+    queryDate.setUTCHours(0, 0, 0, 0);
   
-    const endOfDay = new Date(selectedDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    // const endOfDay = new Date(selectedDate);
+    // endOfDay.setUTCHours(23, 59, 59, 999);
     const reservations = await Orders.find({
-      createdAt: {
-        $gte: startOfDay,
-        $lte: endOfDay
-      },
+      reservationDate: queryDate,
       reservation: true
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
@@ -325,6 +331,7 @@ exports.updateOrder = async (req, res, next) => {
       phone2,         // number
       bankNumber,     // string
       place,          // string
+      orderNotes,
     } = req.body;
 
     const profileImage = req.file;
@@ -339,6 +346,12 @@ exports.updateOrder = async (req, res, next) => {
     const value = req.body?.value || '';
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
+    const reservationDate = new Date(req.body?.reservationDate) || new Date();
+    const normalizedDate = normalizeReservationDate(reservationDate);
+
+    betterConsoleLog('> Logoging reservation date', reservationDate);
+    betterConsoleLog('> Logoging order notes', orderNotes);
+    // return res.status(200).json({message: 'testing'});
 
     const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
 
@@ -406,6 +419,8 @@ exports.updateOrder = async (req, res, next) => {
     order.packed = compareAndUpdate(order.packed, isPacked);
     order.productsPrice = compareAndUpdate(order.productsPrice, productsPrice);
     order.totalPrice = compareAndUpdate(order.totalPrice, customPrice);
+    order.orderNotes = compareAndUpdate(order.orderNotes, orderNotes);
+    order.reservationDate = compareAndUpdate(order.reservationDate, normalizedDate);
     // buyer.place,
     // buyer.phone2,
     // buyer.bankNumber,

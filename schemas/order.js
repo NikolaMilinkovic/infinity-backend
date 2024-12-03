@@ -47,6 +47,7 @@ const OrderSchema = new Schema({
   internalRemark: { type: String, required: false },                            // NEW
   deliveryRemark: { type: String, required: false },                            // NEW
   orderNotes: { type: String, required: false },                                // NEW
+  reservationDate: { type: Date, required: false },                             // NEW
 }, { timestamps: true }); 
 
 OrderSchema.index({ reservation: 1 }); 
