@@ -66,6 +66,8 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('username', 'password');
+// const { updateProductsWithNewFields } = require('./utils/updateAllOnStartup');
+// updateProductsWithNewFields();
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // app.post('/verify-user', authModule.verifyUser);
