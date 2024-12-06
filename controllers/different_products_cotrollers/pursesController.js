@@ -1,13 +1,14 @@
 const CustomError = require("../../utils/CustomError");
 const Purse = require('../../schemas/purse');
 const PurseColor = require('../../schemas/purseColor');
-const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
+const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
+const { uploadMediaToS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 
 // ADD NEW PURSE
 exports.addPurse = async (req, res, next) => {
   try{
-    const { name, category, stockType, price, colors } = req.body;
+    const { name, category, stockType, price, colors, description, displayPriority, supplier } = req.body;
     let image;
     // Validate data
     if (!name || !category || !stockType || !price || colors.length === 0 || !req.file)
@@ -29,6 +30,7 @@ exports.addPurse = async (req, res, next) => {
     // Add all colors to the database
     const insertedColors = await PurseColor.insertMany(colorsArray);
     const colorIds = insertedColors.map((color) => color._id);
+    const counter = await ProductDisplayCounter.findOne();
 
     // Compose new Purse Object
     const newPurse = new Purse({
@@ -37,8 +39,14 @@ exports.addPurse = async (req, res, next) => {
       stockType,
       price,
       colors: colorIds,
-      image
+      image,
+      description,
+      displayPriority: counter?.high || 1,
+      supplier,
     });
+
+    counter.high += 1;
+    await counter.save();
     const result = await newPurse.save();
     const populatedPurse = await Purse.findById(result._id).populate('colors');
 
@@ -61,7 +69,7 @@ exports.addPurse = async (req, res, next) => {
 
 exports.getAllActivePurses = async(req, res, next) => {
   try{
-    const purses = await Purse.find({ active: true }).populate('colors').sort({ _id: -1 });
+    const purses = await Purse.find({ active: true }).populate('colors').sort({ displayPriority: -1 });
     res.status(200).json(purses);
 
   } catch(error){

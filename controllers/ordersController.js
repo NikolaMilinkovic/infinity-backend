@@ -56,9 +56,9 @@ exports.addOrder = async(req, res, next) => {
       profileImage = await uploadMediaToS3(req.file, next);
     }
 
-    productData.forEach(product => {
-      betterConsoleLog('> Product data:', product);
-    });
+    // productData.forEach(product => {
+      // betterConsoleLog('> Product data:', product);
+    // });
     productData.forEach((product) => {
       product.itemReference = product.itemReference._id;
     })

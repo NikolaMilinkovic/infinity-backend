@@ -1,13 +1,14 @@
 const CustomError = require("../../utils/CustomError");
 const Dress = require("../../schemas/dress");
 const DressColor = require("../../schemas/dressColor");
+const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
 const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
 const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
   try {
-    const { name, category, stockType, price, colors } = req.body;
+    const { name, category, stockType, price, colors, description, supplier } = req.body;
     let image;
     if (!name || !category || !price || !stockType || colors.length === 0 || !req.file)
       return next(new CustomError('Vrednost za ime, kategoriju, jedinicu asortimana, cenu, boju ili sliku nije pronađena', 404));
@@ -25,6 +26,7 @@ exports.addDress = async (req, res, next) => {
 
     const insertedColors = await DressColor.insertMany(colorsArray);
     const colorIds = insertedColors.map((color) => color._id);
+    const counter = await ProductDisplayCounter.findOne();
 
     const newDress = new Dress({
       name,
@@ -32,8 +34,13 @@ exports.addDress = async (req, res, next) => {
       stockType,
       price,
       colors: colorIds,
-      image
+      image,
+      description,
+      displayPriority: counter?.high || 1,
+      supplier
     });
+    counter.high += 1;
+    await counter.save();
 
     const result = await newDress.save();
     const populatedDress = await Dress.findById(result._id).populate('colors');
@@ -55,7 +62,7 @@ exports.addDress = async (req, res, next) => {
 // GET ACTIVE DRESSES
 exports.getAllActiveDresses = async(req, res, next) => {
   try{
-    const dresses = await Dress.find({ active: true }).populate('colors').sort({ _id: -1 });
+    const dresses = await Dress.find({ active: true }).populate('colors').sort({ displayPriority: -1 });
     res.status(200).json(dresses);
 
   } catch(error){

@@ -8,11 +8,11 @@ const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
 const { removePurseById } = require("../../utils/purseStockMethods");
 const { removeDressById } = require("../../utils/dressStockMethods");
 const { compareAndUpdate } = require('../../utils/compareMethods');
+const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
 
 exports.removeProductBatch = async (req, res, next) => {
   try{
     const data = req.body;
-    betterConsoleLog('> Logging out data:', data);
   
     for(const item of data){
       console.log('> Deleting for item', item._id, item.stockType);
@@ -42,7 +42,9 @@ exports.updateProduct = async (req, res, next) => {
       price,
       category,
       stockType,
-      colors
+      colors,
+      description,
+      supplier,
     } = req.body;
     const { id } = req.params;
     const io = req.app.locals.io;
@@ -106,6 +108,8 @@ exports.updateProduct = async (req, res, next) => {
           price: price,
           colors: colorIds,
           image: image,
+          description: description,
+          supplier: supplier,
         });
         const result = await newPurse.save();
         const populatedPurse = await Purse.findById(result._id).populate('colors');
@@ -143,6 +147,8 @@ exports.updateProduct = async (req, res, next) => {
           price: price,
           colors: colorIds,
           image: image,
+          description: description,
+          supplier: supplier,
         });
     
         const result = await newDress.save();
@@ -174,6 +180,8 @@ exports.updateProduct = async (req, res, next) => {
         product.price = compareAndUpdate(product.price, price);
         product.category = compareAndUpdate(product.category, category);
         product.stockType = compareAndUpdate(product.stockType, stockType);
+        product.description = compareAndUpdate(product.description, description);
+        product.supplier = compareAndUpdate(product?.supplier, supplier);
         product.colors = colorIds;
         const updatedProduct = await product.save();
         const fetchedUpdatedProduct = await Dress.findById({ _id: updatedProduct._id }).populate('colors');
@@ -200,6 +208,8 @@ exports.updateProduct = async (req, res, next) => {
         product.price = compareAndUpdate(product.price, price);
         product.category = compareAndUpdate(product.category, category);
         product.stockType = compareAndUpdate(product.stockType, stockType);
+        product.description = compareAndUpdate(product.description, description);
+        product.supplier = compareAndUpdate(product?.supplier, supplier);
         product.colors = colorIds;
 
         const updatedProduct = await product.save();
@@ -222,4 +232,74 @@ exports.updateProduct = async (req, res, next) => {
     betterErrorLog('> Error during product update:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja proizvoda', statusCode)); 
   }
+}
+
+exports.updateDisplayPriority = async (req, res, next) => {
+  try{
+    const { position, dresses, purses } = req.body;
+    if(!['top', 'mid', 'bot'].includes(position))
+      throw new Error(`Position must be either [top, mid, bot], it is currently ${position}`);
+    const displayPriority = await getDisplayPriority(position);
+
+    // Update each item in DB
+    if(purses.length > 0){
+      await updateDisplayPriorities(purses, 'Boja-Količina', displayPriority);
+    }
+    if(dresses.length > 0){
+      await updateDisplayPriorities(dresses, 'Boja-Veličina-Količina', displayPriority);
+    }
+
+    const io = req.app.locals.io;
+    const products = [...dresses, ...purses];
+    const displayPriorityUpdates = {
+      displayPriority: displayPriority,
+      products: products,
+    }
+    if(io){
+      io.emit('updateProductDisplayPriority', displayPriorityUpdates);
+    }
+
+    return res.status(200).json({ message: 'Pozicije uspešno ažurirane' });
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error during display priority update:', error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja pozicije proizvoda', statusCode)); 
+  }
+}
+
+async function updateDisplayPriorities(items, stockType, displayPriority){
+  try{
+    const model = stockType === 'Boja-Količina' ? Purse : Dress;
+
+    const result = await model.updateMany(
+      { _id: { $in: items } },
+      { $set: { displayPriority } }
+    );
+
+    betterConsoleLog('> Batch update result:', result);
+  } catch (error) {
+    betterErrorLog('> Error while updating the priorities in the updateDisplayPriorities method:', error);
+    throw new Error('Došlo je do problema prilikom ažuriranja pozicije proizvoda');
+  }
+}
+async function getDisplayPriority(position){
+  const displayCounter = await ProductDisplayCounter.findOne();
+  if (!displayCounter) throw new Error("DisplayCounter not found.");
+  betterConsoleLog('> Logging display counter', displayCounter);
+  let priority;
+
+  if(position === 'top'){
+    displayCounter.high += 1;
+    priority = displayCounter.high;
+  }
+  if(position === 'mid'){
+    const mid = Math.round((displayCounter.high + displayCounter.low) / 2);
+    priority = mid;
+  }
+  if(position === 'bot'){
+    displayCounter.low -= 1;
+    priority = displayCounter.low;
+  }
+  await displayCounter.save();
+  return priority;
 }

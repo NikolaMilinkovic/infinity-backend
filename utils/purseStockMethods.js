@@ -82,7 +82,7 @@ async function updatePurseActiveStatus(purseId) {
   return purse;
 }
 
-async function removePurseById(purseId){
+async function removePurseById(purseId, req){
   const purse = await Purse.findById(purseId).populate('colors');
   if (!purse) {
     throw new Error('Purse not found for id ' + purseId);
@@ -94,9 +94,9 @@ async function removePurseById(purseId){
       }
   
       // Delete image from s3 bucket
-      await deleteMediaFromS3(purse.image.imageName);
+      // await deleteMediaFromS3(purse.image.imageName);
 
-          // Delete the Purse object
+    // Delete the Purse object
     const deletedPurse = await Purse.findByIdAndDelete(purseId);
     if(!deletedPurse){
       return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));

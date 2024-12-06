@@ -101,13 +101,13 @@ async function removeDressById(dressId, req){
     throw new Error('Dress not found for id ' + dressId);
   }
 
-      // Delete all DressColors objects from DB
-      for (const colorId of dress.colors) {
-        await DressColor.findByIdAndDelete(colorId);
-      }
+    // Delete all DressColors objects from DB
+    for (const colorId of dress.colors) {
+      await DressColor.findByIdAndDelete(colorId);
+    }
 
-      // Delete image from s3 bucket
-      await deleteMediaFromS3(dress.image.imageName);
+    // Delete image from s3 bucket
+    // await deleteMediaFromS3(dress.image.imageName);
 
     // Delete the Dress object
     const deletedDress = await Dress.findByIdAndDelete(dressId);

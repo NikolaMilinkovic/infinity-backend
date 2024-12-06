@@ -12,6 +12,9 @@ const DressSchema = new Schema({
     uri: { type: String, required: [true, 'Image is required'] },
     imageName: { type: String, require: [true, 'Image Name is required'] },
   },
+  description: { type: String, required: false },
+  displayPriority: { type: Number, required: [true, 'Display Priority indicator is required'] },
+  supplier: { type: String, required: false },
 });
 
 DressSchema.index({ active: 1 }); 

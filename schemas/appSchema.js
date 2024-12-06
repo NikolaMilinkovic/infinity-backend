@@ -24,7 +24,7 @@ async function initializeAppSettings(){
       await AppSettings.create({});
     }
   } catch (error) {
-    console.error('Error initializing app settings: ', settings);
+    console.error('Error initializing app settings: ', error);
   }
 }
 

@@ -15,7 +15,7 @@ const {
   deletePurse
 } = require('../controllers/different_products_cotrollers/pursesController');
 
-const { removeProductBatch, updateProduct } = require('../controllers/different_products_cotrollers/genericProductController')
+const { removeProductBatch, updateProduct, updateDisplayPriority } = require('../controllers/different_products_cotrollers/genericProductController')
 const router = new express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -31,6 +31,10 @@ router
 router
   .route("/update/:id")
   .put(upload.single('image'), updateProduct)
+
+router
+  .route('/update-display-priority')
+  .post(updateDisplayPriority)
 
 
 // =======================[ DRESSES ]=======================

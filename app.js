@@ -7,6 +7,7 @@ const multer = require('multer');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
+const { initializeProductDisplayCounter } = require('./schemas/productDisplayCounter');
 
 const app = express();
 // ===============[ CORS Options ]=============== //
@@ -46,6 +47,7 @@ const conn_string = process.env.DB_URL;
 mongoose.connect(conn_string)
 .then(() => {
   initializeAppSettings();
+  initializeProductDisplayCounter();
 }).catch((error) => {
   console.error('MongoDB connection error', error);
 });
@@ -64,7 +66,6 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('username', 'password');
-
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // app.post('/verify-user', authModule.verifyUser);
@@ -94,6 +95,9 @@ app.use('/orders', ordersRouter);
 
 const couriersRouter = require('./routers/couriers');
 app.use('/couriers', couriersRouter);
+
+const suppliersRouter = require('./routers/suppliers');
+app.use('/suppliers', suppliersRouter);
 // =====================[ \PROTECTED ROUTERS ]=====================
 
 
