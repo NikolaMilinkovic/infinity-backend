@@ -71,7 +71,7 @@ exports.updateProduct = async (req, res, next) => {
         image = product.image;
       } else {
         image = await uploadMediaToS3(req.file, next);
-        await deleteMediaFromS3(product.image.imageName);
+        // await deleteMediaFromS3(product.image.imageName);
       }
     } else {
       // If no new image is provided, keep the existing image
