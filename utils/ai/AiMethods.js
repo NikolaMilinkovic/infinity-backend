@@ -38,11 +38,11 @@ async function parseOrderData(data){
                         description: "Buyers place that appears in the input, it can be a city, region or something else, it is not address, street name, postal number or house/apartment number do not go into this field, never put number in this field, if not provided return null for that field."
                       },
                       phone: {
-                        description: "Buyers phone number that appears in the input, if not provided return null for that field, remove all empty spaces from phone number if there are any.",
+                        description: "Buyers phone number that appears in the input, if not provided return null for that field, remove all empty spaces or other characters that are not numbers from phone number if there are any. It must be only numbers!",
                         type: Number
                       },
                       phone2: {
-                        description: "Buyers secondary phone number that might appear in the input, if not provided return null for that field, remove all empty spaces from phone number if there are any.",
+                        description: "Buyers secondary phone number that might appear in the input, if not provided return null for that field, remove all empty spaces or other characters that are not numbers from phone number if there are any. It must be only numbers!",
                         type: Number
                       },
                       orderNotes: {
