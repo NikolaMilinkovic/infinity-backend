@@ -253,7 +253,9 @@ exports.removeOrdersBatch = async (req, res, next) => {
 exports.getOrdersByDate = async (req, res, next) => {
   try{
     const dateParam = req.params.date;
+    betterConsoleLog('> Logging date param:', dateParam);
     const selectedDate = new Date(dateParam);
+    betterConsoleLog('> Logging selected date (date after new Date(dateParam)):', selectedDate);
   
     if (isNaN(selectedDate.getTime())) {
       return next(new CustomError('Nevažeći format datuma', 400));
@@ -276,6 +278,8 @@ exports.getOrdersByDate = async (req, res, next) => {
       month: '2-digit',
       year: 'numeric'
     });
+
+    betterConsoleLog('> Returning orders: ', orders.length);
     
     return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders })
   } catch(error) {
