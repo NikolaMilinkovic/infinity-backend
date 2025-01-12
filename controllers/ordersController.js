@@ -319,7 +319,6 @@ exports.getReservationsByDate = async (req, res, next) => {
   }
 }
 
-
 exports.updateOrder = async (req, res, next) => {
   try {
     const orderId = req.params.id;
@@ -350,9 +349,16 @@ exports.updateOrder = async (req, res, next) => {
     const value = req.body?.value || '';
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
-    const reservationDate = new Date(req.body?.reservationDate) || new Date();
-    const normalizedDate = normalizeReservationDate(reservationDate);
 
+    let reservationDate;
+    if(req.body?.reservationDate !== undefined){
+      reservationDate = new Date(req.body?.reservationDate);
+    } else {
+      reservationDate = new Date();
+    }
+    const normalizedDate = normalizeReservationDate(reservationDate);
+    
+    betterConsoleLog('> Logging raw reservation date', req.body?.reservationDate);
     betterConsoleLog('> Logoging reservation date', reservationDate);
     betterConsoleLog('> Logoging order notes', orderNotes);
     // return res.status(200).json({message: 'testing'});
@@ -390,6 +396,7 @@ exports.updateOrder = async (req, res, next) => {
     }
 
     if(addedProducts.length > 0){
+      console.log('> Decreasing product stock method called');
       let dresses = [];
       let purses = [];
 
