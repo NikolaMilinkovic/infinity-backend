@@ -15,7 +15,7 @@ const PurseSchema = new Schema({
   description: { type: String, required: false },
   displayPriority: { type: Number, required: [true, 'Display Priority indicator is required'] },
   supplier: { type: String, required: false },
-});
+}, { timestamps: true }); 
 
 PurseSchema.index({ active: 1 }); 
 

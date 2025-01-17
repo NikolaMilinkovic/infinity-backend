@@ -75,7 +75,7 @@ const ProcessedOrdersForPeriodSchema = new Schema({
       amountSold: { type: Number, required: [false] },
       totalValue: { type: Number, required: [false] },
     }
-  ]
+  ],
 }, { timestamps: true }); 
 
 module.exports = mongoose.model("ProcessedOrdersForPeriod", ProcessedOrdersForPeriodSchema);

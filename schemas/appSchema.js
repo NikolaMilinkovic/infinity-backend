@@ -10,8 +10,14 @@ const appSchema = new Schema({
         default: 'Bex'
       }
     }
-  }
-});
+  },
+  version: {
+    type: Number,
+    required: false,
+    unique: false,
+    default: 1.0,
+  },
+}, { timestamps: true }); 
 
 module.exports = mongoose.model('AppSchema', appSchema);
 

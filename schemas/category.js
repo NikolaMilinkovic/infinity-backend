@@ -11,7 +11,7 @@ const CategorySchema = new Schema({
     type: String, 
     required: [true, 'Please provide a stock type'], 
     unique: false 
-  }
-});
+  },
+}, { timestamps: true }); 
 
 module.exports = mongoose.model('Category', CategorySchema);

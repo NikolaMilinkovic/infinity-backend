@@ -11,7 +11,7 @@ const ColorSchema = new Schema({
     type: String,
     required: false,
     default: ''
-  }
-});
+  },
+}, { timestamps: true }); 
 
 module.exports = mongoose.model("Color", ColorSchema);

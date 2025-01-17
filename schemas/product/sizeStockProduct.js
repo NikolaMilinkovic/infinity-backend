@@ -11,6 +11,8 @@ const SizeStockProduct = new Schema({
     uri: { type: String, required: [true, 'Image is required'] },
     imageName: { type: String, require: [true, 'Image Name is required'] },
   },
-});
+  createdAt: {type: Date, default: Date.now},
+  updatedAt: {type: Date, default: Date.now}
+}); 
 
 module.exports = mongoose.model("SizeStockProduct", SizeStockProduct);

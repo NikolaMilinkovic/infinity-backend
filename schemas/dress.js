@@ -15,7 +15,7 @@ const DressSchema = new Schema({
   description: { type: String, required: false },
   displayPriority: { type: Number, required: [true, 'Display Priority indicator is required'] },
   supplier: { type: String, required: false },
-});
+}, { timestamps: true }); 
 
 DressSchema.index({ active: 1 }); 
 

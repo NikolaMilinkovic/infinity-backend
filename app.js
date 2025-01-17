@@ -68,6 +68,10 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // addUserOnStartup('username', 'password');
 // const { updateProductsWithNewFields } = require('./utils/updateAllOnStartup');
 // updateProductsWithNewFields();
+
+// TIMESTAMP UPDATE
+const { updateTimestamps } = require('./utils/helperMethods');
+// updateTimestamps();
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // app.post('/verify-user', authModule.verifyUser);

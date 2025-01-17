@@ -10,7 +10,7 @@ const CourierSchema = new Schema({
   deliveryPrice: { 
     type: Number, 
     required: [true, 'Please provide a courier name'], 
-  }
-});
+  },
+}, { timestamps: true }); 
 
 module.exports = mongoose.model('Courier', CourierSchema);

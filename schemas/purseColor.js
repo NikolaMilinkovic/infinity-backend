@@ -11,7 +11,7 @@ const PurseColorSchema = new Schema({
     type: String,
     required: [false, 'Please enter a valid color code']
   },
-  stock: { type: Number, required: true, default: 0 }
-});
+  stock: { type: Number, required: true, default: 0 },
+}, { timestamps: true }); 
 
 module.exports = mongoose.model("PurseColor", PurseColorSchema); 

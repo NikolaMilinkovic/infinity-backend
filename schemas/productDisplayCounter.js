@@ -12,8 +12,8 @@ const ProductDisplayCounterSchema = new Schema({
     type: Number, 
     required: false,
     default: 0, 
-  }
-});
+  },
+}, { timestamps: true }); 
 
 // Register the model once
 const ProductDisplayCounter = mongoose.model('ProductDisplayCounter', ProductDisplayCounterSchema);
