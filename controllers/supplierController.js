@@ -1,5 +1,6 @@
 const Supplier = require('../schemas/supplier');
 const CustomError = require('../utils/CustomError');
+const { updateLastUpdatedField } = require('../utils/helperMethods');
 const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
 
 // GET ALL SUPPLIERS
@@ -25,6 +26,7 @@ exports.addSupplier = async(req, res, next) => {
     const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for new supplier: ', newSupplier.name);
+      await updateLastUpdatedField('supplierLastUpdatedAt', io);
       io.emit('supplierAdded', newSupplier);
     }
   
@@ -56,6 +58,7 @@ exports.updateSupplier = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting an update to all devices for supplier update: ', updatedSupplier.name);
+      await updateLastUpdatedField('supplierLastUpdatedAt', io);
       io.emit('supplierUpdated', updatedSupplier);
     }
 
@@ -83,6 +86,7 @@ exports.deleteSupplier = async(req, res, next) => {
     const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for supplier deletion: ', deletedSupplier.name);
+      await updateLastUpdatedField('supplierLastUpdatedAt', io);
       io.emit('supplierRemoved', deletedSupplier._id);
     }
 

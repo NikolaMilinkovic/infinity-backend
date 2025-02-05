@@ -2,8 +2,9 @@ const CustomError = require("../../utils/CustomError");
 const Dress = require("../../schemas/dress");
 const DressColor = require("../../schemas/dressColor");
 const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
-const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
-const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
+const { uploadMediaToS3 } = require("../../utils/s3/S3DefaultMethods");
+const { betterErrorLog } = require("../../utils/logMethods");
+const { updateLastUpdatedField } = require("../../utils/helperMethods");
 
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
@@ -46,7 +47,7 @@ exports.addDress = async (req, res, next) => {
     const populatedDress = await Dress.findById(result._id).populate('colors');
     const io = req.app.locals.io;
     if(io) {
-      betterConsoleLog(`> Logging out the newly added dress ${populatedDress.name}`, populatedDress);
+      await updateLastUpdatedField('dressLastUpdatedAt', io);
       io.emit('activeDressAdded', populatedDress);
       io.emit('activeProductAdded', populatedDress);
     }
@@ -112,16 +113,13 @@ exports.deleteDress = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       if (dress.active) {
-        console.log('> Deleting an active dress');
-        console.log('> Emiting an update to all devices for active dress deletion: ', deletedDress.name);
         io.emit('activeDressRemoved', deletedDress._id);
         io.emit('activeProductRemoved', deletedDress._id);
       } else {
-        console.log('> Deleting an inactive dress');
-        console.log('> Emiting an update to all devices for inactive dress deletion: ', deletedDress.name);
         io.emit('inactiveDressRemoved', deletedDress._id);
         io.emit('inactiveProductRemoved', deletedDress._id);
       }
+      await updateLastUpdatedField('dressLastUpdatedAt', io);
     }
 
 

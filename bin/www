@@ -8,6 +8,7 @@ const app = require('../app');
 const debug = require('debug')('infinity-backend:server');
 const http = require('http');
 const { setupSocket } = require('../utils/socket');
+const { validateLastUpdated, getLastUpdated, getUpdatedMismatchedData } = require('../utils/helperMethods');
 
 
 /**
@@ -26,15 +27,65 @@ const server = http.createServer(app);
 const io = require("socket.io")(server);
 app.locals.io = io;
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  console.log(`> User connected: ${socket.id}`);
+  socket.emit('requestLastUpdated', { message: 'Send lastUpdated data' });
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  // LAST UPDATED CHECK
+  socket.on('lastUpdated', (lastUpdatedData) => {
+    // console.log(`> Received lastUpdated data from ${socket.id}:`, lastUpdatedData);
+    // Method that validates all the dates and returns the missing data
+    handleLastUpdatedValidation(lastUpdatedData, socket);
+  });
+
+  // DISCONNECT 
+  socket.on('disconnect', (reason) => {
+    console.log(`> User disconnected: ${socket.id} - Reason: ${reason}`);
+  });
+
+  // RECONNECT
+  socket.on('reconnect', () => {
+    console.log(`> User reconnected: ${socket.id}`);
+    // socket.emit('requestLastUpdated', { message: 'Send lastUpdated timestamp' });
+  });
+
+  // ERROR
+  socket.on('error', (err) => {
+    console.error('Socket error:', err);
   });
 });
 
-// const io = setupSocket(server);
 
+// Handles sending the missing data to the client
+async function handleLastUpdatedValidation(data, socket){
+  const validationResult = await validateLastUpdated(data);
+  const lastUpdated = await getLastUpdated();
+  let updatedData;
+  let responseData;
+
+  if(validationResult.isEqual === false){
+    console.log('> User data is outdated.');
+    updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys); 
+    responseData = {
+      isSynced: false,
+      lastUpdated,
+      updatedData,
+      message: 'Ažuriranje podataka u toku'
+    }
+
+  } else {
+    console.log('> User data is up to date.')
+    updatedData = [];
+    responseData = {
+      isSynced: true,
+      message: 'Svi podaci su ažurirani',
+    }
+  }
+    
+  // TO DO:
+    // Napravi metod koji ce da fetch podatke za svaki key in mismatchedKeys
+
+  socket.emit('lastUpdatedResponse', responseData);
+}
 
 /**
  * Listen on provided port, on all network interfaces.

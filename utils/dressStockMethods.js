@@ -1,11 +1,8 @@
 const Dress = require('../schemas/dress');
 const DressColor = require('../schemas/dressColor');
 const mongoose = require('mongoose');
-const Purse = require('../schemas/purse');
-const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
-const { betterConsoleLog, betterErrorLog } = require('./logMethods');
-const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
+const { betterErrorLog } = require('./logMethods');
 
 
 async function dressColorStockHandler(colorId, sizeId, operation, value = 1, next){
@@ -84,7 +81,6 @@ async function updateDressActiveStatus(dressId) {
 
   // Update the active flag if no stock is available
   if (!hasStock) {
-    console.log('> Setting dress active to false')
     dress.active = false;
 
     // Save the changes
@@ -119,13 +115,9 @@ async function removeDressById(dressId, req){
     const io = req.app.locals.io;
     if (io) {
       if (dress.active) {
-        console.log('> Deleting an active dress');
-        console.log('> Emiting an update to all devices for active dress deletion: ', deletedDress.name);
         io.emit('activeDressRemoved', deletedDress._id);
         io.emit('activeProductRemoved', deletedDress._id);
       } else {
-        console.log('> Deleting an inactive dress');
-        console.log('> Emiting an update to all devices for inactive dress deletion: ', deletedDress.name);
         io.emit('inactiveDresseRemoved', deletedDress._id);
         io.emit('inactiveProductRemoved', deletedDress._id);
       }

@@ -3,7 +3,8 @@ const Purse = require('../../schemas/purse');
 const PurseColor = require('../../schemas/purseColor');
 const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
 const { uploadMediaToS3 } = require("../../utils/s3/S3DefaultMethods");
-const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
+const { betterErrorLog } = require("../../utils/logMethods");
+const { updateLastUpdatedField } = require("../../utils/helperMethods");
 
 // ADD NEW PURSE
 exports.addPurse = async (req, res, next) => {
@@ -16,9 +17,8 @@ exports.addPurse = async (req, res, next) => {
 
     // Upload to S3
     if(req.file){
-      console.log('> Starting upload to S3')
+      console.log('> Starting upload to S3');
       image = await uploadMediaToS3(req.file, next);
-      betterConsoleLog('> Upload to S3 completed', image);
     }
 
     // Parse colors if they are a string
@@ -53,7 +53,7 @@ exports.addPurse = async (req, res, next) => {
     // Initiate socket updates
     const io = req.app.locals.io;
     if(io) {
-      betterConsoleLog(`> Emiting update to all devices for new purse ${populatedPurse.name}`, populatedPurse);
+      await updateLastUpdatedField('purseLastUpdatedAt', io);
       io.emit('activePurseAdded', populatedPurse);
       io.emit('activeProductAdded', populatedPurse);
     }
@@ -117,13 +117,13 @@ exports.deletePurse = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       if (purse.active) {
-        console.log('> Deleting an active purse');
         console.log('> Emiting an update to all devices for active purse deletion: ', deletedPurse.name);
+        await updateLastUpdatedField('purseLastUpdatedAt', io);
         io.emit('activePurseRemoved', deletedPurse._id);
         io.emit('activeProductRemoved', deletedPurse._id);
       } else {
-        console.log('> Deleting an inactive purse');
         console.log('> Emiting an update to all devices for inactive purse deletion: ', deletedPurse.name);
+        await updateLastUpdatedField('purseLastUpdatedAt', io);
         io.emit('inactivePurseRemoved', deletedPurse._id);
         io.emit('inactiveProductRemoved', deletedPurse._id);
       }

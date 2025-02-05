@@ -11,10 +11,8 @@ function decodeUserIdFromToken(token) {
     console.log('decodeUserIdFromToken called.');
     // Remove "Bearer " prefix if present
     const tokenWithoutBearer = token.startsWith('Bearer ') ? token.slice(7) : token;
-
-    console.log('Token without bearer is', tokenWithoutBearer);
     const decoded = jwt.verify(tokenWithoutBearer, process.env.JWT_SECRET);
-    console.log('Decoded token:', decoded);
+    // console.log('Decoded token:', decoded);
     return decoded.userId;
   } catch (error) {
     console.error('Error decoding token:', error);

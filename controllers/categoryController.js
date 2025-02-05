@@ -1,6 +1,7 @@
 const CustomError = require("../utils/CustomError");
 const Category = require('../schemas/category');
 const { betterErrorLog } = require("../utils/logMethods");
+const { updateLastUpdatedField } = require("../utils/helperMethods");
 
 
 // GET
@@ -27,6 +28,7 @@ exports.addCategory = async(req, res, next) => {
 
     if(io){
       console.log('> Emiting an update to all devices for new category: ', newCategory.name);
+      updateLastUpdatedField('categoryLastUpdatedAt', io);
       io.emit('categoryAdded', newCategory);      
     }
 
@@ -54,6 +56,7 @@ exports.deleteCategory = async(req, res, next) => {
     const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for category deletion: ', deletedCategory.name);
+      updateLastUpdatedField('categoryLastUpdatedAt', io);
       io.emit('categoryRemoved', deletedCategory._id);
     }
 
@@ -81,6 +84,7 @@ exports.updateCategory = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting an update to all devices for category update: ', updatedCategory.name);
+      updateLastUpdatedField('categoryLastUpdatedAt', io);
       io.emit('categoryUpdated', updatedCategory);
     }
 

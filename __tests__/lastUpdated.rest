@@ -1,0 +1,16 @@
+### Token reference
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmZkYjA4YzM2N2QzZmYxOGRkZmM2YmYiLCJpYXQiOjE3Mzc0NzI1NjQsImV4cCI6MjA1MzA0ODU2NH0.wdf5gnqFgdJTcUeMGEk3W2doUQcYV0QT9a02FjWRNOY
+
+### Simulate Login Request
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "username": "helvos",
+  "password": "helvos"
+}
+
+#=#=#=#=#=#=[ LAST UPDATED ]=#=#=#=#=#=#
+### Category GET
+GET http://localhost:3000/last-updated/get-last-updated-data
+Authorization: Bearer {{token}}

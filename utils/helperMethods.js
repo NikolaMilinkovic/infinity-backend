@@ -1,8 +1,6 @@
 const Order = require('../schemas/order');
 const User = require('../schemas/user')
 const bcrypt = require('bcryptjs');
-const SizeStockColor = require('../schemas/product/sizeStockColor');
-const SizeStockProduct = require('../schemas/product/sizeStockProduct');
 const { AppSettings } = require('../schemas/appSchema');
 const Category = require('../schemas/category');
 const Color = require('../schemas/color');
@@ -14,7 +12,9 @@ const { ProductDisplayCounter } = require('../schemas/productDisplayCounter');
 const Purse = require('../schemas/purse');
 const PurseColor = require('../schemas/purseColor');
 const Supplier = require('../schemas/supplier');
-const { betterErrorLog } = require('./logMethods');
+const { betterErrorLog, betterConsoleLog } = require('./logMethods');
+const { LastUpdated } = require('../schemas/lastUpdated');
+
 
 /**
  * Adds a user to the database if they do not already exist.
@@ -84,24 +84,20 @@ async function resetAllOrdersProcessedState() {
  * Fields added are: createdAt & updatedAt ✔️
  * 
  * Models:
- * - sizeStockColor           ❌
- * - sizeStockProduct         ❌
- * - appSettings              ❌
- * - category                 ❌
- * - color                    ❌
- * - courier                  ❌
- * - dress                    ❌
- * - dressColor               ❌
- * - order                    ❌
- * - processedOrdersForPeriod ❌
- * - productDisplayCounter    ❌
- * - purse                    ❌
- * - purseColor               ❌
- * - supplier                 ❌
+ * - appSettings              ✔️
+ * - category                 ✔️
+ * - color                    ✔️
+ * - courier                  ✔️
+ * - dress                    ✔️
+ * - dressColor               ✔️
+ * - order                    ✔️
+ * - processedOrdersForPeriod ✔️
+ * - productDisplayCounter    ✔️
+ * - purse                    ✔️
+ * - purseColor               ✔️
+ * - supplier                 ✔️
  */
 async function updateTimestamps(models = [
-  SizeStockColor,
-  SizeStockProduct,
   AppSettings, 
   Category, 
   Color, 
@@ -130,32 +126,264 @@ async function updateTimestamps(models = [
 
       const documents = await model.find({});
       documents.forEach(doc => {
-        // if (!doc.createdAt || !doc.updatedAt) {
-          // bulkOps.push({
-          //   updateOne: {
-          //     filter: { _id: doc._id },
-          //     update: { 
-          //       $set: { 
-          //         createdAt: doc.createdAt || now, 
-          //         updatedAt: doc.updatedAt || now 
-          //       }
-          //     }
-          //   }
-          // });
-        // }
         doc.save()
       });
-  
-      // if (bulkOps.length > 0) {
-      //   await model.bulkWrite(bulkOps);
-      //   console.log(`${bulkOps.length} documents updated.`);
-      // } else {
-      //   console.log(`No documents needed updating.`);
-      // }
-
     }
   } catch(error){
     console.error(`There was an error adding timestamps to files:`, error);
+  }
+}
+
+/**
+ * Iterates and compares lastUpdated methods, returns isEqual and an array of mismatched keys
+ * @param { LastUpdated data from the user } data 
+ * @param { LastUpdated data from the server } serverData 
+ * @returns {isEqual: Boolean, mismatchedKeys: String[]}
+*/
+function compareObjects(data, serverData) {
+  const normalizeDate = (date) => (date instanceof Date ? date.toISOString() : date);
+
+  const mismatchedKeys = [];
+
+  let isEqual = true;
+
+  for (const key of Object.keys(data)) {
+    const dataValue = data[key];
+    const serverValue = serverData[key];
+
+    const isMatch =
+      key === '_id'
+        ? dataValue === serverValue.toString()
+        : serverValue instanceof Date
+        ? normalizeDate(dataValue) === normalizeDate(serverValue)
+        : dataValue === serverValue;
+
+    if (!isMatch) {
+      mismatchedKeys.push(key);
+      isEqual = false;
+    }
+  }
+
+  return { isEqual, mismatchedKeys };
+}
+
+/**
+ * Compares users version of LastUpdated document with the one on the server
+ * Returns true if they are the same and an empty array
+ * If they are different returns false and all the keys that are different 
+ * @param {LastUpdated document that is present on the client} data 
+ * @returns {isEqual: Boolean, mismatchedKeys: String[]}
+ */
+async function validateLastUpdated(data){
+  try{
+    const serverData = await LastUpdated.findOne({});
+    const compareResult = compareObjects(data, serverData);
+    return compareResult;
+  } catch(error){
+    console.error(`There was an error validation last updated objects:`, error);
+  }
+}
+
+/**
+ * Updates the key of the LastUpdated document with new Date value
+ * @param {String - Name of the field that we are updating} key 
+ * Possible values for key
+ * - appSchemaLastUpdatedAt
+ * - userLastUpdatedAt
+ * - categoryLastUpdatedAt
+ * - courierLastUpdatedAt
+ * - colorLastUpdatedAt
+ * - dressLastUpdatedAt
+ * - dressColorLastUpdatedAt
+ * - purseLastUpdatedAt
+ * - purseColorLastUpdatedAt
+ * - supplierLastUpdatedAt
+ * - productDisplayCounterLastUpdatedAt
+ * - processedOrdersForPeriodLastUpdatedAt
+ * - orderLastUpdatedAt
+ * @returns {isUpdated: Boolean, newDate: Date | null}
+ */
+async function updateLastUpdatedField(key, io){
+  if(!key) console.error('> key in updateLastUpdatedField method is required');
+  if(!io) console.error('> io in updateLastUpdatedField method is required');
+  try{
+    const document = await LastUpdated.findOne({});
+    const date = new Date();
+    if(!document){
+      console.error('Document not found in the updateLastUpdatedField method');
+      return {isUpdated: false, newDate: null};
+    }
+    document[key] = date;
+    await document.save();
+    if(io){
+      io.emit('syncLastUpdated', document);      
+    }
+    return {isUpdated: true, newDate: date};
+
+  } catch(error){
+    console.error(`There was an error updating the field ${key} of lastUpdated document`, error);
+    return { isUpdated: false, newDate: null };
+  }
+}
+
+/**
+ * LastUpdated.findOne({})
+ * @returns LastUpdated document from the database
+ */
+async function getLastUpdated(){
+  try{
+    const document = await LastUpdated.findOne({});
+    return document
+  } catch(error){
+    console.error(`There was an error while fetching the LastUpdated document`, error);
+  }
+}
+
+
+/**
+ * 
+ * @param {Array of mismatchedKeys used to fetch the missing data} mismatchedKeys 
+*/
+
+// user                             ❌
+// appSchema                        ❌
+// category                         ✔️
+// courier                          ✔️
+// color                            ✔️
+// dress                            ✔️
+// dressColor                       ✔️
+// purse                            ✔️
+// purseColor                       ✔️
+// supplier                         ✔️
+// processedOrdersForPeriod         ❌
+// order                            ❌
+
+async function getUpdatedMismatchedData(mismatchedKeys){
+  if(mismatchedKeys.length === 0) return;
+  let results = [];
+  try{
+    const keys = mismatchedKeys
+                  .filter(key => key && key !== 'updatedAt')
+                  .map(key => {
+                    const formattedKey = formatFieldName(key)
+                    return formattedKey;
+                  });
+    console.log('============[ KEYS ]============');
+    console.log(keys);
+    console.log('============[ KEYS ]============');
+    for(const key of keys){
+      console.log(`> Logging out data for key: ${key}`);
+      try{
+        let data;
+
+        switch(key){
+          // USER
+          case 'user':
+          break;
+          // APP SETTINGS
+          case 'appSchema':
+            data = await AppSettings.findOne()
+          break;
+          // CATEGORY
+          case 'category':
+            data = await Category.find();
+          break;
+          // COURIER
+          case 'courier':
+            data = await Courier.find();
+          break;
+          // COLOR
+          case 'color':
+            data = await Color.find();
+          break;
+          // DRESS
+          case 'dress':
+            data = [];
+          break;
+          // DRESS COLOR
+          case 'dressColor':
+            data = [];
+          break;
+          // PURSE
+          case 'purse':
+            data = [];
+          break;
+          // PURSE COLOR
+          case 'purseColor':
+            data = [];
+          break;
+          // SUPPLIER
+          case 'supplier':
+            data = await Supplier.find();
+          break;
+          // ORDER
+          case 'order':
+            const processed = await Order.find({ processed: true })
+            .sort({ createdAt: -1 })
+            .populate('products.itemReference');
+          
+          const unprocessed = await Order.find({ processed: false })
+            .sort({ createdAt: -1 })
+            .populate('products.itemReference');
+
+            data = {
+              processed,
+              unprocessed,
+            }
+          break;
+        }
+
+        betterConsoleLog(`> Logging out fetched ${key} data:`, data);
+
+        results.push({
+          key,
+          data,
+          success: true
+        })
+      } catch(error){
+        console.error(`Error processing key ${key}:`, error);
+        results.push({
+          key,
+          data: [],
+          success: false,
+          error: error.message
+        })
+      }
+    }
+    return results;
+  } catch(error){
+    console.error(`There was an error in getUpdatedMismatchedData method while fetching data.`, error);
+  }
+}
+
+/**
+ * 
+ * @param {String} fieldName 
+ * @returns {String} Capitalized fieldName without the LastUpdatedAt
+ */
+function formatFieldName(fieldName) {
+  // Regex to match 'LastUpdatedAt' at the end of the string
+  const regex = /LastUpdatedAt$/i;
+  
+  // Remove 'LastUpdatedAt' and capitalize the first character
+  const cleanedFieldName = fieldName.replace(regex, '');
+  return cleanedFieldName;
+}
+
+/**
+ * Validates the existence of LastUpdated file in the database
+ * If file is not present it will create a new one
+ */
+async function ensureLastUpdatedDocument() {
+  try {
+    let document = await LastUpdated.findOne({});
+    if (!document) {
+      document = new LastUpdated({});
+      await document.save();
+      console.log("> Created a new LastUpdated document.");
+    }
+  } catch (error) {
+    console.error("> Error ensuring LastUpdated document exists:", error);
   }
 }
 
@@ -163,5 +391,10 @@ module.exports = {
   addUserOnStartup,
   resetAllOrdersPackedState,
   resetAllOrdersProcessedState,
-  updateTimestamps
+  updateTimestamps,
+  validateLastUpdated,
+  updateLastUpdatedField,
+  getLastUpdated,
+  getUpdatedMismatchedData,
+  ensureLastUpdatedDocument
 };

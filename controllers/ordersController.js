@@ -11,11 +11,11 @@ const { compareAndUpdate } = require('../utils/compareMethods');
 const mongoose = require('mongoose');
 const ProcessedOrdersForPeriod = require('../schemas/processedOrdersForPeriod');
 const { normalizeReservationDate } = require('../utils/dateMethods');
+const { updateLastUpdatedField } = require("../utils/helperMethods");
 
 
 exports.addOrder = async(req, res, next) => {
   try{
-    console.log('> Add order called');
     const buyerData = JSON.parse(req.body.buyerData);
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
@@ -56,9 +56,6 @@ exports.addOrder = async(req, res, next) => {
       profileImage = await uploadMediaToS3(req.file, next);
     }
 
-    // productData.forEach(product => {
-      // betterConsoleLog('> Product data:', product);
-    // });
     productData.forEach((product) => {
       product.itemReference = product.itemReference._id;
     })
@@ -104,9 +101,9 @@ exports.addOrder = async(req, res, next) => {
     const newOrder = await order.save();
     const io = req.app.locals.io;
     io.emit('orderAdded', newOrder);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
     let dressUpdateData = [];
     let purseUpdateData = [];
-    // betterConsoleLog('> Logging New Order: ', newOrder);
     
     // SOCKETS | Handles updates in the database & on client
     for(const product of productData){
@@ -210,17 +207,12 @@ exports.getUnpackedOrders = async(req, res, next) => {
 
 exports.parseOrder = async(req, res, next) => {
   try{
-    console.log('> Parse order called');
     const { orderData } = req.body;
     if(!orderData){
       return next(new CustomError(`Došlo je do problema prilikom parsiranja podataka o kupcu.`, 400));
     }
 
     const response = await JSON.parse(await parseOrderData(orderData));
-    console.log('> Logging response');
-    console.log(response);
-    betterConsoleLog('> LOGGING PARSED DATA RESPONSE', response);
-    
     res.status(200).json({ message: `Podaci su uspešno parsirani`, data: response });
 
   } catch(error){
@@ -234,13 +226,15 @@ exports.removeOrdersBatch = async (req, res, next) => {
   try{
     // Array of order ids
     const orderIds = req.body;
+    const io = req.app.locals.io;
 
-    betterConsoleLog('> Logging out data', orderIds);
     let response;
     if(orderIds.length === 1) response = await removeOrderById(orderIds[0], req);
     if(orderIds.length > 1) response = await removeBatchOrdersById(orderIds, req);
-    
-    // betterConsoleLog('> Logging order removal response', response);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
+
+    // Generic field update to trigger fetch of updated data
+    await updateLastUpdatedField('dressLastUpdatedAt', io);
     res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
 
   } catch(error) {
@@ -253,9 +247,7 @@ exports.removeOrdersBatch = async (req, res, next) => {
 exports.getOrdersByDate = async (req, res, next) => {
   try{
     const dateParam = req.params.date;
-    betterConsoleLog('> Logging date param:', dateParam);
     const selectedDate = new Date(dateParam);
-    betterConsoleLog('> Logging selected date (date after new Date(dateParam)):', selectedDate);
   
     if (isNaN(selectedDate.getTime())) {
       return next(new CustomError('Nevažeći format datuma', 400));
@@ -396,7 +388,6 @@ exports.updateOrder = async (req, res, next) => {
     }
 
     if(addedProducts.length > 0){
-      console.log('> Decreasing product stock method called');
       let dresses = [];
       let purses = [];
 
@@ -454,9 +445,8 @@ exports.updateOrder = async (req, res, next) => {
     }
 
     const updatedOrder = await order.save();
-    console.log('Order Updated Socket called')
-    betterConsoleLog('> UPDATED ORDER IS', updatedOrder);
     io.emit('orderUpdated', updatedOrder);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Porudžbina uspešno ažurirana' });
   } catch (error) {
@@ -513,6 +503,7 @@ exports.setIndicatorToTrue = async (req, res, next) => {
     await Orders.findByIdAndUpdate(id, { packedIndicator: true });
     const io = req.app.locals.io;
     io.emit('setStockIndicatorToTrue', id);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Success' });
   } catch(error) {
@@ -528,6 +519,7 @@ exports.setIndicatorToFalse = async (req, res, next) => {
     await Orders.findByIdAndUpdate(id, { packedIndicator: false });
     const io = req.app.locals.io;
     io.emit('setStockIndicatorToFalse', id);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Success' });
   } catch(error) {
@@ -540,7 +532,6 @@ exports.setIndicatorToFalse = async (req, res, next) => {
 exports.packOrdersByIds = async (req, res, next) => {
   try{
     const { packedIds } = req.body;
-    betterConsoleLog('> Logging packed ids', packedIds);
     const operations = packedIds.map((id) => ({
       updateOne: {
         filter: { _id: new mongoose.Types.ObjectId(`${id}`) },
@@ -550,6 +541,7 @@ exports.packOrdersByIds = async (req, res, next) => {
     await Orders.collection.bulkWrite(operations);
     const io = req.app.locals.io;
     io.emit('packOrdersByIds', packedIds);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
   } catch(error) {
@@ -594,6 +586,7 @@ exports.batchReservationsToCourier = async (req, res, next) => {
       reservations,
     }
     io.emit('reservationsToOrders', data);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     const result = await Orders.bulkWrite(operations);
     res.status(200).json({ mesasge: 'Rezervacije uspešno prebačene u porudžbine' })
@@ -655,6 +648,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     io.emit('processOrdersByIds', orderIds);
     io.emit('getProcessedOrdersStatistics', newProcessedOrder);
     io.emit('addNewStatisticFile', newProcessedOrder);
+    await updateLastUpdatedField('orderLastUpdatedAt', io);
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
   } catch (error){
     const statusCode = error.statusCode || 500;

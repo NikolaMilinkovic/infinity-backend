@@ -3,23 +3,28 @@ const Dress = require("../../schemas/dress");
 const DressColor = require("../../schemas/dressColor");
 const Purse = require("../../schemas/purse")
 const PurseColor = require("../../schemas/purseColor")
-const { uploadMediaToS3, deleteMediaFromS3 } = require("../../utils/s3/S3DefaultMethods");
-const { betterErrorLog, betterConsoleLog } = require("../../utils/logMethods");
+const { uploadMediaToS3 } = require("../../utils/s3/S3DefaultMethods");
+const { betterErrorLog } = require("../../utils/logMethods");
 const { removePurseById } = require("../../utils/purseStockMethods");
 const { removeDressById } = require("../../utils/dressStockMethods");
 const { compareAndUpdate } = require('../../utils/compareMethods');
 const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
+const { updateLastUpdatedField } = require("../../utils/helperMethods");
 
+// REMOVE PRODUCT BATCH
 exports.removeProductBatch = async (req, res, next) => {
   try{
     const data = req.body;
+    const io = req.app.locals.io;
   
     for(const item of data){
       console.log('> Deleting for item', item._id, item.stockType);
       if(item.stockType === 'Boja-Veličina-Količina'){
+        await updateLastUpdatedField('dressLastUpdatedAt', io);
         await removeDressById(item._id, req);
       }
       if(item.stockType === 'Boja-Količina'){
+        await updateLastUpdatedField('purseLastUpdatedAt', io);
         await removePurseById(item._id, req);
       }
     }
@@ -33,6 +38,7 @@ exports.removeProductBatch = async (req, res, next) => {
   }
 }
 
+// UPDATE PRODUCT
 exports.updateProduct = async (req, res, next) => {
   try{
     const {
@@ -52,8 +58,6 @@ exports.updateProduct = async (req, res, next) => {
     
     let product;
     let colorsArray = Array.isArray(colors) ? colors : JSON.parse(colors);
-    // betterConsoleLog('> Logging out received colors', colorsArray[0].sizes);
-    // return res.status(200);
     const newImageData = req.file;
     let image;
 
@@ -89,9 +93,11 @@ exports.updateProduct = async (req, res, next) => {
         await Dress.findByIdAndDelete(product._id);
         if(io){
           if(product.active){
+            await updateLastUpdatedField('dressLastUpdatedAt', io);
             io.emit('activeDressRemoved', product._id);
             io.emit('activeProductRemoved', product._id);
           } else {
+            await updateLastUpdatedField('dressLastUpdatedAt', io);
             io.emit('inactiveDressRemoved', product._id);
             io.emit('inactiveProductRemoved', product._id);
           }
@@ -115,9 +121,11 @@ exports.updateProduct = async (req, res, next) => {
         const populatedPurse = await Purse.findById(result._id).populate('colors');
         if(io){
           if(active){
+            await updateLastUpdatedField('purseLastUpdatedAt', io);            
             io.emit('activePurseAdded', populatedPurse);
             io.emit('activeProductAdded', populatedPurse);
           } else {
+            await updateLastUpdatedField('purseLastUpdatedAt', io);
             io.emit('inactivePurseAdded', populatedPurse);
             io.emit('inactiveProductAdded', populatedPurse);
           }
@@ -128,9 +136,11 @@ exports.updateProduct = async (req, res, next) => {
         await Purse.findByIdAndDelete(product._id);
         if(io){
           if(product.active){
+            await updateLastUpdatedField('purseLastUpdatedAt', io);
             io.emit('activePurseRemoved', product._id);
             io.emit('activeProductRemoved', product._id);
           } else {
+            await updateLastUpdatedField('purseLastUpdatedAt', io);
             io.emit('inactivePurseRemoved', product._id);
             io.emit('inactiveProductRemoved', product._id);
           }
@@ -155,9 +165,11 @@ exports.updateProduct = async (req, res, next) => {
         const populatedDress = await Dress.findById(result._id).populate('colors');
         if(io){
           if(active){
+            await updateLastUpdatedField('dressLastUpdatedAt', io);
             io.emit('activeDressAdded', populatedDress);
             io.emit('activeProductAdded', populatedDress);
           } else {
+            await updateLastUpdatedField('dressLastUpdatedAt', io);
             io.emit('inactiveDressAdded', populatedDress);
             io.emit('inactiveProductAdded', populatedDress);
           }
@@ -188,8 +200,10 @@ exports.updateProduct = async (req, res, next) => {
         
         if(io){
           if(product.active){
+            await updateLastUpdatedField('dressLastUpdatedAt', io);
             io.emit('activeProductUpdated', fetchedUpdatedProduct);
           } else {
+            await updateLastUpdatedField('dressLastUpdatedAt', io);
             io.emit('inactiveProductUpdated', fetchedUpdatedProduct);
           }
         }
@@ -199,7 +213,6 @@ exports.updateProduct = async (req, res, next) => {
         const colorIdsForUpdate = product.colors;
         await PurseColor.deleteMany({ _id: { $in: colorIdsForUpdate }});
         const insertedColors = await PurseColor.insertMany(colorsArray);
-        betterConsoleLog('> insertedColors', insertedColors);
         const colorIds = insertedColors.map((color) => color._id);
 
         product.name = compareAndUpdate(product.name, name);
@@ -214,12 +227,13 @@ exports.updateProduct = async (req, res, next) => {
 
         const updatedProduct = await product.save();
         const fetchedUpdatedProduct = await Purse.findById({ _id: updatedProduct._id }).populate('colors');
-        betterConsoleLog('> fetchedUpdatedProduct', fetchedUpdatedProduct);
 
         if(io){
           if(product.active){
+            await updateLastUpdatedField('purseLastUpdatedAt', io);
             io.emit('activeProductUpdated', fetchedUpdatedProduct);
           } else {
+            await updateLastUpdatedField('purseLastUpdatedAt', io);
             io.emit('inactiveProductUpdated', fetchedUpdatedProduct);
           }
         }
@@ -276,7 +290,6 @@ async function updateDisplayPriorities(items, stockType, displayPriority){
       { $set: { displayPriority } }
     );
 
-    betterConsoleLog('> Batch update result:', result);
   } catch (error) {
     betterErrorLog('> Error while updating the priorities in the updateDisplayPriorities method:', error);
     throw new Error('Došlo je do problema prilikom ažuriranja pozicije proizvoda');
@@ -285,7 +298,6 @@ async function updateDisplayPriorities(items, stockType, displayPriority){
 async function getDisplayPriority(position){
   const displayCounter = await ProductDisplayCounter.findOne();
   if (!displayCounter) throw new Error("DisplayCounter not found.");
-  betterConsoleLog('> Logging display counter', displayCounter);
   let priority;
 
   if(position === 'top'){

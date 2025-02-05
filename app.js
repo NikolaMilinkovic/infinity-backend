@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
 const { initializeProductDisplayCounter } = require('./schemas/productDisplayCounter');
+const { initializeLastUpdatedTracker } = require('./schemas/lastUpdated');
 
 const app = express();
 // ===============[ CORS Options ]=============== //
@@ -48,6 +49,7 @@ mongoose.connect(conn_string)
 .then(() => {
   initializeAppSettings();
   initializeProductDisplayCounter();
+  initializeLastUpdatedTracker();
 }).catch((error) => {
   console.error('MongoDB connection error', error);
 });
@@ -68,10 +70,9 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // addUserOnStartup('username', 'password');
 // const { updateProductsWithNewFields } = require('./utils/updateAllOnStartup');
 // updateProductsWithNewFields();
+const { ensureLastUpdatedDocument } = require('./utils/helperMethods');
+ensureLastUpdatedDocument();
 
-// TIMESTAMP UPDATE
-const { updateTimestamps } = require('./utils/helperMethods');
-// updateTimestamps();
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // app.post('/verify-user', authModule.verifyUser);
@@ -104,6 +105,9 @@ app.use('/couriers', couriersRouter);
 
 const suppliersRouter = require('./routers/suppliers');
 app.use('/suppliers', suppliersRouter);
+
+const lastUpdatedRouter = require('./routers/updatesTracker');
+app.use('/last-updated', lastUpdatedRouter);
 // =====================[ \PROTECTED ROUTERS ]=====================
 
 

@@ -1,6 +1,7 @@
 const Color = require('../schemas/color');
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog } = require('../utils/logMethods');
+const { updateLastUpdatedField } = require('../utils/helperMethods');
 
 
 // GET ALL COLORS
@@ -27,6 +28,7 @@ exports.addColor = async(req, res, next) => {
     const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for new color: ', newColor.name);
+      updateLastUpdatedField('colorLastUpdatedAt', io);
       io.emit('colorAdded', newColor);
     }
   
@@ -56,6 +58,7 @@ exports.updateColor = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       console.log('> Emitting an update to all devices for color update: ', updatedColor.name);
+      updateLastUpdatedField('colorLastUpdatedAt', io);
       io.emit('colorUpdated', updatedColor);
     }
 
@@ -84,6 +87,7 @@ exports.deleteColor = async(req, res, next) => {
     const io = req.app.locals.io;
     if(io){
       console.log('> Emiting an update to all devices for color deletion: ', deletedColor.name);
+      updateLastUpdatedField('colorLastUpdatedAt', io);
       io.emit('colorRemoved', deletedColor._id);
     }
 

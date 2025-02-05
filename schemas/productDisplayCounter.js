@@ -25,8 +25,6 @@ async function initializeProductDisplayCounter() {
     if (!existingCounter) {
       console.log('> Creating new product display counter...');
       await ProductDisplayCounter.create({});
-    } else {
-      betterConsoleLog('> Product display counter found:', existingCounter);
     }
   } catch (error) {
     console.error('Error initializing product display counter:', error);

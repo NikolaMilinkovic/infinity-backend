@@ -20,7 +20,3 @@ const DressSchema = new Schema({
 DressSchema.index({ active: 1 }); 
 
 module.exports = mongoose.model("Dress", DressSchema);
-
-// OVA DVA IDU U PORUDZBINU !!!
-// courier: { type: String, required: [true, 'Courier is required'] }, 
-// packed: { type: Boolean, default: false },
