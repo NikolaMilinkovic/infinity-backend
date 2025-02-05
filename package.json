@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node ./bin/www",
-    "serverstart": "SET DEBUG=express-local-library:* & npm run devstart"
+    "serverstart": "SET DEBUG=express-local-library:* & npm run devstart",
+    "heroku-postbuild": "npm install --cpu=arm64 --os=linux --libc=musl sharp"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",
