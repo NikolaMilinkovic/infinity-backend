@@ -90,7 +90,7 @@ async function updateDressActiveStatus(dressId) {
   return dress;
 }
 
-async function removeDressById(dressId, req){
+async function removeDressById(dressId, req, next){
   try{
     const dress = await Dress.findById(dressId).populate('colors');
   if (!dress) {
@@ -125,7 +125,9 @@ async function removeDressById(dressId, req){
 
     return true;
   } catch(error){
-    console.error(error);
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error removing a dress via ID:', error);
+    return next(new CustomError('Došlo je do problema prilikom brisanja haljine putem ID-a', statusCode));
   }
 }
 

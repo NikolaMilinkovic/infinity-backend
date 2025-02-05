@@ -3,11 +3,11 @@ const mongoose = require('mongoose');
 const Purse = require('../schemas/purse'); // Import the Purse model
 const PurseColor = require('../schemas/purseColor'); // Import the PurseColor model
 
-async function seedPurses() {
+async function seedPurses(productNum = 100) {
   try {
     // Check if purses have already been seeded
     const existingPurses = await Purse.countDocuments();
-    if (existingPurses >= 100) {
+    if (existingPurses >= productNum) {
       console.log('Purses already seeded.');
       return;
     }
@@ -15,7 +15,7 @@ async function seedPurses() {
     const purses = [];
     const colors = await PurseColor.find({}).select('_id'); // Fetch all available colors
 
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < productNum; i++) {
       const purse = new Purse({
         name: `Purse ${i + 1}`,
         active: true,

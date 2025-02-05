@@ -270,12 +270,11 @@ exports.getOrdersByDate = async (req, res, next) => {
       month: '2-digit',
       year: 'numeric'
     });
-
-    betterConsoleLog('> Returning orders: ', orders.length);
     
     return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders })
   } catch(error) {
     const statusCode = error.statusCode || 500;
+    betterErrorLog(`> Error while fetching order for date ${formattedDate}`, error);
     return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)); 
   }
 }
@@ -307,6 +306,7 @@ exports.getReservationsByDate = async (req, res, next) => {
     return res.status(200).json({ message: `Rezervacije uspešno pronađene za datum ${formattedDate}`, reservations: reservations })
   } catch(error) {
     const statusCode = error.statusCode || 500;
+    betterErrorLog(`> Error while fetching reservations for date ${formattedDate}`, error);
     return next(new CustomError(`Došlo je do problema prilikom preuzimanja rezervacija za datum ${formattedDate}`, statusCode)); 
   }
 }
@@ -349,12 +349,6 @@ exports.updateOrder = async (req, res, next) => {
       reservationDate = new Date();
     }
     const normalizedDate = normalizeReservationDate(reservationDate);
-    
-    betterConsoleLog('> Logging raw reservation date', req.body?.reservationDate);
-    betterConsoleLog('> Logoging reservation date', reservationDate);
-    betterConsoleLog('> Logoging order notes', orderNotes);
-    // return res.status(200).json({message: 'testing'});
-
     const { removedProducts, addedProducts } = compareProductArrays(order.products, products);
 
     // Increment the stock for each removed product from the order
@@ -383,7 +377,6 @@ exports.updateOrder = async (req, res, next) => {
         dresses: dresses,
         purses: purses
       }
-      betterConsoleLog('> Logging data', data);
       io.emit('batchStockIncrease', data);
     }
 
@@ -408,7 +401,6 @@ exports.updateOrder = async (req, res, next) => {
         dresses: dresses,
         purses: purses
       }
-      betterConsoleLog('> Added Products data for decrementing values on front is: ', data);
       io.emit('batchStockDecrease', data);
     }
 
@@ -423,13 +415,6 @@ exports.updateOrder = async (req, res, next) => {
     order.totalPrice = compareAndUpdate(order.totalPrice, customPrice);
     order.orderNotes = compareAndUpdate(order.orderNotes, orderNotes);
     order.reservationDate = compareAndUpdate(order.reservationDate, normalizedDate);
-    // buyer.place,
-    // buyer.phone2,
-    // buyer.bankNumber,
-    // value,
-    // weight,
-    // internalRemark,
-    // deliveryRemark,
     order.buyer.place = compareAndUpdate(order.buyer.place, place);
     order.buyer.phone2 = compareAndUpdate(order.buyer.phone2, phone2);
     order.buyer.bankNumber = compareAndUpdate(order.buyer.bankNumber, bankNumber);
@@ -451,7 +436,7 @@ exports.updateOrder = async (req, res, next) => {
     res.status(200).json({ message: 'Porudžbina uspešno ažurirana' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error while updating an order', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja porudžbine', statusCode));
   }
 };
@@ -469,15 +454,12 @@ function compareProductArrays(oldProducts, newProducts) {
 
   // Find removed products by comparing old ids with new ids
   const removedProducts = oldProductIds.filter(id => !newProductIds.includes(id));
-  betterConsoleLog('> Removed Products are', removedProducts);
 
   // Find added products by including products without _id and those with _id not in oldProductIds
   const addedProducts = [
     ...newProducts.filter(product => !product._id),  // Products without _id are new
     ...newProducts.filter(product => product._id && !oldProductIds.includes(product._id.toString()))  // Products with _id not in oldProducts
   ];
-
-  betterConsoleLog('> Added products are', addedProducts);
 
   return { removedProducts, addedProducts };
 }
@@ -508,7 +490,7 @@ exports.setIndicatorToTrue = async (req, res, next) => {
     res.status(200).json({ message: 'Success' });
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error while updating package indicator to true', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
 }
@@ -524,7 +506,7 @@ exports.setIndicatorToFalse = async (req, res, next) => {
     res.status(200).json({ message: 'Success' });
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error while updating package indicator to false', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
 }
@@ -546,7 +528,7 @@ exports.packOrdersByIds = async (req, res, next) => {
     return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error while packing orders by ID\'s', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
 }
@@ -554,8 +536,6 @@ exports.packOrdersByIds = async (req, res, next) => {
 exports.batchReservationsToCourier = async (req, res, next) => {
   try{
     const { courier, reservations } = req.body;
-    betterConsoleLog('> Loggign courier', courier);
-    betterConsoleLog('> Loggign reservations', reservations);
     const operations = reservations.map((reservation) => ({
       updateOne: {
         filter: { _id: new mongoose.Types.ObjectId(`${reservation._id}`) },
@@ -593,7 +573,7 @@ exports.batchReservationsToCourier = async (req, res, next) => {
 
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog(`> Error while transfering batch reservations courier ${courier.name}`, error);
     return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode));
   }
 }
@@ -606,11 +586,9 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
       const buffer = Buffer.from(fileData, 'base64');
       uploadedFile = await uploadFileToS3({ buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }, next);
       // uri & fileName
-      betterConsoleLog('> Uploaded file', uploadedFile);
     }
     // Get all orders that are active, not a reservation, and for specific courier
     const orders = await Orders.find({ processed: false, reservation: false, 'courier.name': courier  });
-    betterConsoleLog('Logging orders:', orders.length);
     const totalSalesValue = getTotalSalesValue(orders);
     const averageOrderValue = getAverageOrderValue(totalSalesValue, orders.length);
     const salesPerStockType = getSalesPerStockType(orders);
@@ -652,7 +630,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
   } catch (error){
     const statusCode = error.statusCode || 500;
-    console.error(error);
+    betterErrorLog('> Error parsing orders during excell file generation', error);
     return next(new CustomError('Došlo je do problema prilikom parsiranja porudžbina i generisanja exell-a', statusCode));
   }
 }

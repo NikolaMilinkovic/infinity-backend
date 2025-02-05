@@ -10,7 +10,7 @@ exports.getCategories = async(req, res, next) => {
     const categories = await Category.find()
     res.status(200).json(categories);
   } catch(error){
-    betterErrorLog('> Error getting all categories:', error);
+    betterErrorLog('> Error while fetching categories:', error);
     return next(new CustomError('There was an error while fetching categories', 500));
   }
 }
@@ -27,7 +27,6 @@ exports.addCategory = async(req, res, next) => {
     const io = req.app.locals.io;
 
     if(io){
-      console.log('> Emiting an update to all devices for new category: ', newCategory.name);
       updateLastUpdatedField('categoryLastUpdatedAt', io);
       io.emit('categoryAdded', newCategory);      
     }
@@ -38,7 +37,7 @@ exports.addCategory = async(req, res, next) => {
       return next(new CustomError(`Kategorija ${error.keyValue.name} vec postoji`, 409));
     }
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error adding a category:', error);
+    betterErrorLog('> Error while adding a new category:', error);
     return next(new CustomError('Doslo je do problema prilikom dodavanja kategorije', statusCode));
   }
 }
@@ -55,7 +54,6 @@ exports.deleteCategory = async(req, res, next) => {
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if(io){
-      console.log('> Emiting an update to all devices for category deletion: ', deletedCategory.name);
       updateLastUpdatedField('categoryLastUpdatedAt', io);
       io.emit('categoryRemoved', deletedCategory._id);
     }
@@ -64,7 +62,7 @@ exports.deleteCategory = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error deleting a category:', error);
+    betterErrorLog('> Error while deleting a category:', error);
     return next(new CustomError('Doslo je do problema prilikom brisanja kategorije', statusCode));
   }
 }
@@ -83,7 +81,6 @@ exports.updateCategory = async(req, res, next) => {
     // Handle socket update
     const io = req.app.locals.io;
     if (io) {
-      console.log('> Emitting an update to all devices for category update: ', updatedCategory.name);
       updateLastUpdatedField('categoryLastUpdatedAt', io);
       io.emit('categoryUpdated', updatedCategory);
     }
@@ -94,7 +91,7 @@ exports.updateCategory = async(req, res, next) => {
       category: updatedCategory,
     });    
   } catch(error){
-    betterErrorLog('> Error updating a category:', error);
+    betterErrorLog('> Error while updating a category:', error);
     return next(new CustomError('There was an error while updating category', 500));
   }
 }

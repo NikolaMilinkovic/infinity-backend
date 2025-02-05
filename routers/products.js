@@ -1,6 +1,5 @@
 const express = require('express');
 
-const { getProducts } = require('../controllers/productsController')
 const { 
   addDress, 
   getAllActiveDresses, 
@@ -19,10 +18,6 @@ const { removeProductBatch, updateProduct, updateDisplayPriority } = require('..
 const router = new express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-
-router
-  .route("")
-  .get(getProducts)
 
 router
   .route("/delete-item-batch")

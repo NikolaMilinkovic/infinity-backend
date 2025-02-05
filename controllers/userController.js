@@ -10,7 +10,7 @@ exports.getUserData = async (req, res, next) => {
     
     res.status(200).json({ permissions: user.permissions, settings: user.settings });
   } catch (error) {
-    console.error('Error in getUserData:', error);
-    res.status(500).json({ message: 'Došlo je do problema prilikom preuzimanja podataka o korisniku' });
+    betterErrorLog('> Error while fetching user data:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja podataka o korisniku', 500));
   }
 };

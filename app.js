@@ -11,6 +11,7 @@ const { initializeProductDisplayCounter } = require('./schemas/productDisplayCou
 const { initializeLastUpdatedTracker } = require('./schemas/lastUpdated');
 
 const app = express();
+
 // ===============[ CORS Options ]=============== //
 app.use(cors());
 // const allowedOrigins = [
@@ -43,6 +44,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 authModule.initializeAuth(app);
 // =====================[ \AUTH ]=====================
 
+
 // ===============[ MongoDB connection ]=============== //
 const conn_string = process.env.DB_URL;
 mongoose.connect(conn_string)
@@ -61,8 +63,9 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
 // Call seedPurses on server start, creates 1000 purse 
+// const { seedPurses } = require('./utils/testDummyData');
 // mongoose.connection.once('open', async () => {
-  // await seedPurses();
+  // await seedPurses(1000);
 // });
 
 // Example usage of adding new user on startup
@@ -113,7 +116,6 @@ app.use('/last-updated', lastUpdatedRouter);
 
 // =====================[ ERROR HANDLERS ]======================
 const errorHandler = require('./controllers/errorController');
-const { seedPurses } = require('./utils/testDummyData');
 const { initializeAppSettings } = require('./schemas/appSchema');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================

@@ -18,16 +18,16 @@ exports.getColors = async(req, res, next) => {
 // ADD NEW COLOR
 exports.addColor = async(req, res, next) => {
   try{
+    return next(new CustomError('There was an error while adding a new color', 500));
     const { color } = req.body;
     const newColor = new Color({
       name: color.name,
       colorCode: '#68e823'
     })
 
-    const response = await newColor.save();
+    await newColor.save();
     const io = req.app.locals.io;
     if(io){
-      console.log('> Emiting an update to all devices for new color: ', newColor.name);
       updateLastUpdatedField('colorLastUpdatedAt', io);
       io.emit('colorAdded', newColor);
     }
@@ -57,7 +57,6 @@ exports.updateColor = async(req, res, next) => {
     // Handle socket update
     const io = req.app.locals.io;
     if (io) {
-      console.log('> Emitting an update to all devices for color update: ', updatedColor.name);
       updateLastUpdatedField('colorLastUpdatedAt', io);
       io.emit('colorUpdated', updatedColor);
     }
@@ -86,7 +85,6 @@ exports.deleteColor = async(req, res, next) => {
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if(io){
-      console.log('> Emiting an update to all devices for color deletion: ', deletedColor.name);
       updateLastUpdatedField('colorLastUpdatedAt', io);
       io.emit('colorRemoved', deletedColor._id);
     }

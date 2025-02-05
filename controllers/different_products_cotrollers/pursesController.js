@@ -17,7 +17,6 @@ exports.addPurse = async (req, res, next) => {
 
     // Upload to S3
     if(req.file){
-      console.log('> Starting upload to S3');
       image = await uploadMediaToS3(req.file, next);
     }
 
@@ -62,7 +61,7 @@ exports.addPurse = async (req, res, next) => {
 
   } catch (error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error Adding a purse:', error);
+    betterErrorLog('> Error while adding a new product:', error);
     return next(new CustomError('Došlo je do problema prilikom dodavanja proizvoda', statusCode));    
   }
 }
@@ -74,7 +73,7 @@ exports.getAllActivePurses = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error getting active purses:', error);
+    betterErrorLog('> Error while fetching informations about active bags:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o aktivnim torbicama', statusCode));  
   }
 }
@@ -86,7 +85,7 @@ exports.getAllInactivePurses = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error getting active purses:', error);
+    betterErrorLog('> Error while fetching informations about inactive bags:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o neaktivnim torbicama', statusCode));  
   }
 }
@@ -117,12 +116,10 @@ exports.deletePurse = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       if (purse.active) {
-        console.log('> Emiting an update to all devices for active purse deletion: ', deletedPurse.name);
         await updateLastUpdatedField('purseLastUpdatedAt', io);
         io.emit('activePurseRemoved', deletedPurse._id);
         io.emit('activeProductRemoved', deletedPurse._id);
       } else {
-        console.log('> Emiting an update to all devices for inactive purse deletion: ', deletedPurse.name);
         await updateLastUpdatedField('purseLastUpdatedAt', io);
         io.emit('inactivePurseRemoved', deletedPurse._id);
         io.emit('inactiveProductRemoved', deletedPurse._id);
@@ -134,7 +131,7 @@ exports.deletePurse = async(req, res, next) => {
 
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error deleting a purse:', error);
+    betterErrorLog('> Error while deleting a product:', error);
     return next(new CustomError('Došlo je do problema prilikom brisanja proizvoda', statusCode)); 
   }
 }

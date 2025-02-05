@@ -7,7 +7,7 @@ exports.getAppSettings = async (req, res, next) => {
     const appData = await AppSettings.findOne({}, 'settings');
     res.status(200).json({ message: 'Podešavanja za aplikaciju uspešno preuzeta', settings: appData.settings });
   } catch (error) {
-    betterErrorLog('Error in getAppSettings:', error);
+    betterErrorLog('> Error while fetching app settings:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja podešavanja za aplikaciju', 500));
   }
 };

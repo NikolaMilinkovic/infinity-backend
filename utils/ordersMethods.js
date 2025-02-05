@@ -50,7 +50,6 @@ async function removeOrderById(orderId, req) {
           throw new CustomError(`Size with ID: ${item.selectedSizeId} not found`, 404);
         }
 
-        console.log(`Updating DressColor ${item.selectedColorId} Size ${item.selectedSizeId}: ${size.stock} += ${quantity}`);
         size.stock += quantity;
 
         if (size.stock < 0) {
@@ -76,7 +75,6 @@ async function removeOrderById(orderId, req) {
           throw new CustomError(`PurseColorItem sa ID: ${item.selectedColorId} nije pronađen`, 404);
         }
 
-        console.log(`Updating PurseColor ${item.selectedColorId}: ${colorItem.stock} += ${quantity}`);
         colorItem.stock += quantity;
 
         if (colorItem.stock < 0) {
@@ -125,6 +123,7 @@ async function removeOrderById(orderId, req) {
   } catch (error) {
     // Rollback transaction on error
     await session.abortTransaction();
+    betterErrorLog('> Error in removeOrderById:', error);
     throw error;
   } finally {
     session.endSession();
@@ -138,7 +137,6 @@ async function removeOrderById(orderId, req) {
  * @returns {Promise<{ acknowledged: boolean, deletedCount: number }>}
  */
 async function removeBatchOrdersById(orderIds, req) {
-  console.log('> removeBatchOrdersById method called, removing...');
   
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -217,7 +215,6 @@ async function removeBatchOrdersById(orderIds, req) {
           throw new CustomError(`Size ${sizeId} not found in DressColor ${colorId}`, 404);
         }
 
-        console.log(`Updating DressColor ${colorId} Size ${sizeId}: ${size.stock} += ${increment}`);
         size.stock += increment;
 
         if (size.stock < 0) {
@@ -237,7 +234,6 @@ async function removeBatchOrdersById(orderIds, req) {
           throw new CustomError(`PurseColor ${colorId} not found`, 404);
         }
 
-        console.log(`Updating PurseColor ${colorId}: ${colorItem.stock} += ${increment}`);
         colorItem.stock += increment;
 
         if (colorItem.stock < 0) {
@@ -261,7 +257,6 @@ async function removeBatchOrdersById(orderIds, req) {
     const data = { dresses: dressItems, purses: purseItems };
     const io = req.app.locals.io;
     if (io) {
-      console.log('> Emitting socket updates...');
       io.emit('orderBatchRemoved', orderIds);
       io.emit('batchStockIncrease', data);
     }
@@ -271,7 +266,7 @@ async function removeBatchOrdersById(orderIds, req) {
   } catch (error) {
     // If there's an error, rollback the transaction
     await session.abortTransaction();
-    console.error('Error during batch order delete:', error);
+    betterErrorLog('> Error during purse batch deletion:', error);
     throw error;
   } finally {
     // End the session

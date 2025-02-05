@@ -68,7 +68,7 @@ exports.getAllActiveDresses = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error getting active dresses:', error);
+    betterErrorLog('> Error fetchuing informations about active dresses:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o aktivnim haljinama', statusCode));  
   }
 };
@@ -81,7 +81,7 @@ exports.getAllInactiveDresses = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error getting inactive dresses:', error);
+    betterErrorLog('> Error fetchuing informations about inactive dresses:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o neaktivnim haljinama', statusCode));    
   }
 };
@@ -127,7 +127,7 @@ exports.deleteDress = async(req, res, next) => {
 
   } catch(error){
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error deleting a dress:', error);
+    betterErrorLog('> Error deleting a product:', error);
     return next(new CustomError('Došlo je do problema prilikom preuzimanja brisanja proizvoda', statusCode)); 
   }
 }

@@ -1,3 +1,13 @@
+
+/**
+ * NOTE
+ * 
+ * CustomError sends back data to logger, as we use it everywhere to handle errors
+ * It is decided that it will be the point from which we are sending errors to logging service
+ * 
+ */
+
+
 require('dotenv').config();
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog } = require('../utils/logMethods');
@@ -5,6 +15,7 @@ const { betterErrorLog } = require('../utils/logMethods');
 // Development environment errors
 const devErrors = (res, err) => {
   betterErrorLog(err.message, err);
+
   res.status(err.statusCode).json({
     status: err.statusCode,
     message: err.message,
@@ -12,9 +23,12 @@ const devErrors = (res, err) => {
     error: err
   });
 };
+
+
 // Production environment errors
 const prodErrors = (res, err) => {
   betterErrorLog(err.message, err);
+
   if (err.isOperational) {
     res.status(err.statusCode).json({
       status: err.statusCode,
@@ -27,6 +41,8 @@ const prodErrors = (res, err) => {
     });
   }
 };
+
+
 // Reference for future error handling method
 const castErrorHandler = (err) => {
   const message = `Invalid value for ${err.path}: ${err.value}!`;

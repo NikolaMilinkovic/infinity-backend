@@ -75,7 +75,7 @@ async function resetAllOrdersProcessedState() {
     
     console.log(`Successfully updated ${result.nModified} orders.`);
   } catch (error) {
-    console.error("Error updating orders:", error);
+    betterErrorLog("Error updating orders:", error);
   }
 }
 
@@ -130,7 +130,7 @@ async function updateTimestamps(models = [
       });
     }
   } catch(error){
-    console.error(`There was an error adding timestamps to files:`, error);
+    betterErrorLog(`There was an error adding timestamps to files:`, error);
   }
 }
 
@@ -180,7 +180,7 @@ async function validateLastUpdated(data){
     const compareResult = compareObjects(data, serverData);
     return compareResult;
   } catch(error){
-    console.error(`There was an error validation last updated objects:`, error);
+    betterErrorLog(`There was an error validation last updated objects:`, error);
   }
 }
 
@@ -221,7 +221,7 @@ async function updateLastUpdatedField(key, io){
     return {isUpdated: true, newDate: date};
 
   } catch(error){
-    console.error(`There was an error updating the field ${key} of lastUpdated document`, error);
+    betterErrorLog(`There was an error updating the field ${key} of lastUpdated document`, error);
     return { isUpdated: false, newDate: null };
   }
 }
@@ -235,7 +235,7 @@ async function getLastUpdated(){
     const document = await LastUpdated.findOne({});
     return document
   } catch(error){
-    console.error(`There was an error while fetching the LastUpdated document`, error);
+    betterErrorLog(`There was an error while fetching the LastUpdated document`, error);
   }
 }
 
@@ -244,7 +244,6 @@ async function getLastUpdated(){
  * 
  * @param {Array of mismatchedKeys used to fetch the missing data} mismatchedKeys 
 */
-
 // user                             ❌
 // appSchema                        ❌
 // category                         ✔️
@@ -255,8 +254,7 @@ async function getLastUpdated(){
 // purse                            ✔️
 // purseColor                       ✔️
 // supplier                         ✔️
-// processedOrdersForPeriod         ❌
-// order                            ❌
+// order                            ✔️
 
 async function getUpdatedMismatchedData(mismatchedKeys){
   if(mismatchedKeys.length === 0) return;
@@ -268,11 +266,7 @@ async function getUpdatedMismatchedData(mismatchedKeys){
                     const formattedKey = formatFieldName(key)
                     return formattedKey;
                   });
-    console.log('============[ KEYS ]============');
-    console.log(keys);
-    console.log('============[ KEYS ]============');
     for(const key of keys){
-      console.log(`> Logging out data for key: ${key}`);
       try{
         let data;
 
@@ -333,15 +327,13 @@ async function getUpdatedMismatchedData(mismatchedKeys){
           break;
         }
 
-        betterConsoleLog(`> Logging out fetched ${key} data:`, data);
-
         results.push({
           key,
           data,
           success: true
         })
       } catch(error){
-        console.error(`Error processing key ${key}:`, error);
+        betterErrorLog(`Error processing key ${key}:`, error);
         results.push({
           key,
           data: [],
@@ -352,7 +344,7 @@ async function getUpdatedMismatchedData(mismatchedKeys){
     }
     return results;
   } catch(error){
-    console.error(`There was an error in getUpdatedMismatchedData method while fetching data.`, error);
+    betterErrorLog(`There was an error in getUpdatedMismatchedData method while fetching data.`, error);
   }
 }
 
@@ -383,7 +375,7 @@ async function ensureLastUpdatedDocument() {
       console.log("> Created a new LastUpdated document.");
     }
   } catch (error) {
-    console.error("> Error ensuring LastUpdated document exists:", error);
+    betterErrorLog("> Error ensuring LastUpdated document exists:", error);
   }
 }
 

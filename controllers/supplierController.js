@@ -25,7 +25,6 @@ exports.addSupplier = async(req, res, next) => {
     const response = await newSupplier.save();
     const io = req.app.locals.io;
     if(io){
-      console.log('> Emiting an update to all devices for new supplier: ', newSupplier.name);
       await updateLastUpdatedField('supplierLastUpdatedAt', io);
       io.emit('supplierAdded', newSupplier);
     }
@@ -44,11 +43,8 @@ exports.addSupplier = async(req, res, next) => {
 // UPDATE A SUPPLIER
 exports.updateSupplier = async(req, res, next) => {
   try{
-    console.log('> Update supplier called..');
     const { name } = req.body;
     const { id } = req.params;
-    betterConsoleLog('> Name is', name)
-    betterConsoleLog('> ID is', id)
     const updatedSupplier = await Supplier.findByIdAndUpdate(
       id,
       { name },
@@ -57,7 +53,6 @@ exports.updateSupplier = async(req, res, next) => {
 
     const io = req.app.locals.io;
     if (io) {
-      console.log('> Emitting an update to all devices for supplier update: ', updatedSupplier.name);
       await updateLastUpdatedField('supplierLastUpdatedAt', io);
       io.emit('supplierUpdated', updatedSupplier);
     }
@@ -85,7 +80,6 @@ exports.deleteSupplier = async(req, res, next) => {
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if(io){
-      console.log('> Emiting an update to all devices for supplier deletion: ', deletedSupplier.name);
       await updateLastUpdatedField('supplierLastUpdatedAt', io);
       io.emit('supplierRemoved', deletedSupplier._id);
     }

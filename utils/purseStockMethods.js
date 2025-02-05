@@ -72,7 +72,6 @@ async function updatePurseActiveStatus(purseId) {
 
   // Update the active flag if no stock is available
   if (!hasStock) {
-    console.log('> Setting purse active to false')
     purse.active = false;
 
     // Save the changes
@@ -106,13 +105,9 @@ async function removePurseById(purseId, req){
     const io = req.app.locals.io;
     if (io) {
       if (purse.active) {
-        console.log('> Deleting an active purse');
-        console.log('> Emiting an update to all devices for active purse deletion: ', deletedPurse.name);
         io.emit('activePurseRemoved', deletedPurse._id);
         io.emit('activeProductRemoved', deletedPurse._id);
       } else {
-        console.log('> Deleting an inactive purse');
-        console.log('> Emiting an update to all devices for inactive purse deletion: ', deletedPurse.name);
         io.emit('inactivePurseRemoved', deletedPurse._id);
         io.emit('inactiveProductRemoved', deletedPurse._id);
       }

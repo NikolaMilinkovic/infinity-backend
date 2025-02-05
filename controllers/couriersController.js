@@ -26,7 +26,6 @@ exports.addCourier = async(req, res, next) => {
     const response = await newCourier.save();
     const io = req.app.locals.io;
     if(io){
-      console.log('> Emiting an update to all devices for new courier: ', newCourier.name);
       await updateLastUpdatedField('courierLastUpdatedAt', io);
       io.emit('courierAdded', newCourier);
     }
@@ -57,7 +56,6 @@ exports.updateCourier = async(req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       await updateLastUpdatedField('courierLastUpdatedAt', io);
-      console.log('> Emitting an update to all devices for courier update: ', updatedCourier.name);
       io.emit('courierUpdated', updatedCourier);
     }
 
@@ -85,7 +83,6 @@ exports.deleteCourier = async(req, res, next) => {
     const io = req.app.locals.io;
     if(io){
       await updateLastUpdatedField('courierLastUpdatedAt', io);
-      console.log('> Emiting an update to all devices for courier deletion: ', deleterCourier.name);
       io.emit('courierRemoved', deleterCourier._id);
     }
 

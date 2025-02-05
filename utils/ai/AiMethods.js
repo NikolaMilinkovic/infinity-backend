@@ -9,7 +9,6 @@ async function parseOrderData(data){
     organization: process.env.ORGANIZATION,
     project: process.env.PROJECT_ID,
   });
-  // Authorization: Bearer OPENAI_API_KEY
 
   const completion = await openai.chat.completions.create({
       model: "gpt-4o-2024-08-06",
@@ -54,9 +53,6 @@ async function parseOrderData(data){
           }
       }
   });
-
-  console.log('> Returning GPT data')
-  console.log(completion.choices[0].message.content);
   return completion.choices[0].message.content;
 }
 

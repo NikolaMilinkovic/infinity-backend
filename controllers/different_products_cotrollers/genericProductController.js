@@ -18,10 +18,9 @@ exports.removeProductBatch = async (req, res, next) => {
     const io = req.app.locals.io;
   
     for(const item of data){
-      console.log('> Deleting for item', item._id, item.stockType);
       if(item.stockType === 'Boja-Veličina-Količina'){
         await updateLastUpdatedField('dressLastUpdatedAt', io);
-        await removeDressById(item._id, req);
+        await removeDressById(item._id, req, next);
       }
       if(item.stockType === 'Boja-Količina'){
         await updateLastUpdatedField('purseLastUpdatedAt', io);
@@ -33,8 +32,8 @@ exports.removeProductBatch = async (req, res, next) => {
 
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error during batch delete:', error);
-    return next(new CustomError('Došlo je do problema prilikom brisanja proizvoda', statusCode)); 
+    betterErrorLog('> Error while deleting a product:', error);
+    return next(new CustomError('Došlo je do problema prilikom brisanja proizvoda', statusCode));
   }
 }
 
@@ -243,8 +242,8 @@ exports.updateProduct = async (req, res, next) => {
     }
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error during product update:', error);
-    return next(new CustomError('Došlo je do problema prilikom ažuriranja proizvoda', statusCode)); 
+    betterErrorLog('> Error while updating a product:', error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja proizvoda', statusCode));
   }
 }
 
@@ -276,7 +275,7 @@ exports.updateDisplayPriority = async (req, res, next) => {
     return res.status(200).json({ message: 'Pozicije uspešno ažurirane' });
   } catch(error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error during display priority update:', error);
+    betterErrorLog('> Error while updating a product position:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja pozicije proizvoda', statusCode)); 
   }
 }
@@ -291,8 +290,9 @@ async function updateDisplayPriorities(items, stockType, displayPriority){
     );
 
   } catch (error) {
-    betterErrorLog('> Error while updating the priorities in the updateDisplayPriorities method:', error);
-    throw new Error('Došlo je do problema prilikom ažuriranja pozicije proizvoda');
+    const statusCode = error.statusCode || 500;
+    betterErrorLog('> Error while updating display priorities:', error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja pozicije proizvoda', statusCode));   
   }
 }
 async function getDisplayPriority(position){
