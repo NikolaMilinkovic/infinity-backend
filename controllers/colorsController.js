@@ -18,7 +18,6 @@ exports.getColors = async(req, res, next) => {
 // ADD NEW COLOR
 exports.addColor = async(req, res, next) => {
   try{
-    return next(new CustomError('There was an error while adding a new color', 500));
     const { color } = req.body;
     const newColor = new Color({
       name: color.name,
