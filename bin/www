@@ -27,7 +27,7 @@ const io = require("socket.io")(server);
 const logtail = require("../utils/logger");
 app.locals.io = io;
 io.on('connection', (socket) => {
-  logtail.log(`> User connected: ${socket.id}`);
+  console.log(`> User connected: ${socket.id}`);
   socket.emit('requestLastUpdated', { message: 'Send lastUpdated data' });
 
   // LAST UPDATED CHECK
@@ -38,12 +38,12 @@ io.on('connection', (socket) => {
 
   // DISCONNECT 
   socket.on('disconnect', (reason) => {
-    logtail.log(`> User disconnected: ${socket.id} - Reason: ${reason}`);
+    console.log(`> User disconnected: ${socket.id} - Reason: ${reason}`);
   });
 
   // RECONNECT
   socket.on('reconnect', () => {
-    logtail.log(`> User reconnected: ${socket.id}`);
+    console.log(`> User reconnected: ${socket.id}`);
     // socket.emit('requestLastUpdated', { message: 'Send lastUpdated timestamp' });
   });
 
