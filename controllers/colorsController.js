@@ -40,6 +40,7 @@ exports.addColor = async(req, res, next) => {
       return next(new CustomError(`${error?.cause?.keyValue?.name} boja već postoji`, 409));
     }
 
+    betterErrorLog(`> Error adding a new color:`, error);
     const statusCode = error.statusCode || 500;
     return next(new CustomError(`Došlo je do problema prilikom dodavanja boje [${error.code}]`, statusCode));
   }
