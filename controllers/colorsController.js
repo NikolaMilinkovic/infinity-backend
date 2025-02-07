@@ -31,14 +31,17 @@ exports.addColor = async(req, res, next) => {
       io.emit('colorAdded', newColor);
     }
   
-    res.status(200).json({ message: `${color.name} boja je uspesno dodata`, color: newColor });
+    res.status(200).json({ message: `${color.name} boja je uspešno dodata`, color: newColor });
   } catch(error){
-    if (error.code === 11000) {
-      return next(new CustomError(`${error.keyValue.name} boja vec postoji`, 409));
+
+    // Handle mongo error response
+    const mongoErrCode = error?.cause?.code;
+    if (error.code === 11000 || mongoErrCode === 11000) {
+      return next(new CustomError(`${error?.cause?.keyValue?.name} boja već postoji`, 409));
     }
+
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error adding a new color:', error);
-    return next(new CustomError('Doslo je do problema prilikom dodavanja boje', statusCode));
+    return next(new CustomError(`Došlo je do problema prilikom dodavanja boje [${error.code}]`, statusCode));
   }
 }
 
