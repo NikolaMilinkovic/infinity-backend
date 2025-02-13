@@ -8,6 +8,11 @@ const appSchema = new Schema({
         type: String,
         required: false,
         default: 'Bex'
+      },
+      listProductsBy: {
+        type: String,
+        required: false,
+        default: 'category'
       }
     }
   },

@@ -34,8 +34,8 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
 app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // app.use(multer().any());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -70,11 +70,14 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
-// addUserOnStartup('username', 'password');
+// addUserOnStartup('helvos2', 'helvos2');
 // const { updateProductsWithNewFields } = require('./utils/updateAllOnStartup');
 // updateProductsWithNewFields();
-const { ensureLastUpdatedDocument } = require('./utils/helperMethods');
+const { ensureLastUpdatedDocument, ensureAppSettingsDocument } = require('./utils/helperMethods');
 ensureLastUpdatedDocument();
+
+// const { getSumOfAllProducts } = require('./utils/helperMethods');
+// getSumOfAllProducts();
 
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);

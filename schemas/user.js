@@ -24,6 +24,11 @@ const UserSchema = new Schema({
       courier: {
         type: String,
         required: false
+      },
+      listProductsBy: {
+        type: String,
+        required: false,
+        default: 'category'
       }
     }
   },

@@ -379,6 +379,58 @@ async function ensureLastUpdatedDocument() {
   }
 }
 
+/**
+ * Fetches and counts all available products
+ * Logs all dresses / purses and total combined
+ */
+async function getSumOfAllProducts(){
+  try{
+    let dresses = await Dress.find().populate('colors');
+    console.log(`> Fetched dresses: ${dresses.length}`);
+    let purses = await Purse.find().populate('colors');
+    console.log(`> Fetched purses: ${purses.length}`);
+
+    let dressSum = 0;
+    let purseSum = 0;
+
+    for(const dress of dresses){
+      for(const color of dress.colors){
+        for(const size of color.sizes){
+          dressSum += size.stock
+        }
+      }
+    }
+    console.log(`> Ukupno haljina: ${dressSum}`);
+    for(const purse of purses){
+      for(const color of purse.colors){
+        purseSum += color.stock
+      }
+    }
+    console.log(`> Ukupno torbica: ${purseSum}`);
+    console.log(`> Totalno proizvoda: ${dressSum + purseSum}`);
+
+  } catch(error){
+    betterErrorLog("> Error while running getSumOfAllProducts:", error);
+  }
+}
+
+async function ensureAppSettingsDocument() {
+  try {
+    let document = await AppSettings.findOne({});
+    console.log(document);
+    if (!document) {
+      document = new AppSettings({});
+      await document.save();
+      console.log("> Created a new AppSettings document.");
+    } else {
+      console.log('> AppSettings document found.');
+    }
+    
+  } catch (error) {
+    betterErrorLog("> Error ensuring AppSettings document exists:", error);
+  }
+}
+
 module.exports = {
   addUserOnStartup,
   resetAllOrdersPackedState,
@@ -388,5 +440,7 @@ module.exports = {
   updateLastUpdatedField,
   getLastUpdated,
   getUpdatedMismatchedData,
-  ensureLastUpdatedDocument
+  ensureLastUpdatedDocument,
+  getSumOfAllProducts,
+  ensureAppSettingsDocument
 };
