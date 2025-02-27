@@ -23,13 +23,24 @@ const UserSchema = new Schema({
     defaults: {
       courier: {
         type: String,
-        required: false
+        required: false,
+        default: ''
       },
       listProductsBy: {
         type: String,
         required: false,
         default: 'category'
+      },
+      theme: {
+        type: String,
+        required: false,
+        default: 'light'
       }
+    },
+    language: {
+      type: String,
+      required: false,
+      default: 'srb'
     }
   },
 }, { timestamps: true }); 

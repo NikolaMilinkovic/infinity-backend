@@ -279,6 +279,51 @@ exports.getOrdersByDate = async (req, res, next) => {
   }
 }
 
+exports.getOrdersForPeriodFromDate = async(req, res, next) => {
+  try{
+    console.log('> getOrdersForPeriodFromDate called');
+    const dateParam = req.params.date;
+    console.log(`> dateParam is ${dateParam}`);
+    const selectedDate = new Date(dateParam);
+  
+    if (isNaN(selectedDate.getTime())) {
+      return next(new CustomError('Nevažeći format datuma', 400));
+    }
+  
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const currentDate = new Date();
+
+    const orders = await Orders.find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: currentDate
+      },
+      reservation: false
+    });
+    const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    betterConsoleLog('> Found orders: ', orders);
+    
+    return res.status(200).json({ message: `Porudžbine uspešno pronađene za period od ${formattedDate} pa do sada`, orders: orders })
+
+  } catch(error) {
+    const statusCode = error.statusCode || 500;
+    const formattedDate = req.params.date ? new Date(req.params.date).toLocaleDateString('sr-RS', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }) : 'izabranog datuma';
+
+    betterErrorLog(`> Error while fetching orders for period from ${formattedDate} until now`, error);
+    return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za period od ${formattedDate} do danas`, statusCode));
+  }
+}
+
 exports.getReservationsByDate = async (req, res, next) => {
   try{
     const dateParam = req.params.date;

@@ -15,20 +15,14 @@ exports.getUserData = async (req, res, next) => {
   }
 };
 
-exports.updateUserData = async (req, res, next) => {
+exports.updateUserSettings = async (req, res, next) => {
   try{
+    console.log(req.body.defaults);
     const userId = decodeUserIdFromToken(req.headers.authorization);
     const user = await User.findById(userId);
-    // Get the object with new settings
-    
-
-    // Traverse each object and update the user settings
-
-    // Save
-
-    // Respond with status 200, ok message
-    res.status(200).json({ message: 'Podešavanja usešno ažurirana' });
-
+    user.settings.defaults = req.body.defaults;
+    await user.save();
+    res.status(200).json({ message: 'Podešavanja uspešno ažurirana' });
   } catch (error) {
     betterErrorLog('> Error while updating user data:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja podataka o korisniku', 500));

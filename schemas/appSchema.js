@@ -17,11 +17,16 @@ const appSchema = new Schema({
     }
   },
   version: {
-    type: Number,
+    type: String,
     required: false,
     unique: false,
-    default: 1.0,
+    default: '1.0.0',
   },
+  buildLink: {
+    type: String,
+    required: false,
+    default: '',
+  }
 }, { timestamps: true }); 
 
 module.exports = mongoose.model('AppSchema', appSchema);

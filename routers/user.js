@@ -1,14 +1,14 @@
 const express = require('express');
 const router = new express.Router();
 
- const { getUserData, updateUserData } = require('../controllers/userController');
+ const { getUserData, updateUserSettings } = require('../controllers/userController');
 
 router
   .route('/data')
   .get(getUserData)
 
 router
-  .route('/update-settings')
-  .post(updateUserData)
+  .route('/update-user-settings')
+  .post(updateUserSettings)
 
 module.exports = router;
