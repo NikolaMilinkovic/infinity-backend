@@ -1,48 +1,53 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const UserSchema = new Schema({
-  username: { 
-    type:String, 
-    required: [true, 'Please enter a valid username'], 
-    unique: [true, 'Username already registered'] 
-  },
-  password: { 
-    type:String, 
-    required: [true, 'Please enter a valid password'] 
-  },
-  role: { 
-    type:String, 
-    requred: [true, 'Please enter a valid role'], 
-    default: 'admin' 
-  },
-  permissions: {
-    
-  },
-  settings: {
-    defaults: {
-      courier: {
-        type: String,
-        required: false,
-        default: ''
-      },
-      listProductsBy: {
-        type: String,
-        required: false,
-        default: 'category'
-      },
-      theme: {
-        type: String,
-        required: false,
-        default: 'light'
-      }
+const UserSchema = new Schema(
+  {
+    username: {
+      type: String,
+      required: [true, 'Please enter a valid username'],
+      unique: [true, 'Username already registered'],
     },
-    language: {
+    password: {
+      type: String,
+      required: [true, 'Please enter a valid password'],
+    },
+    role: {
+      type: String,
+      required: [true, 'Please enter a valid role'],
+      default: 'admin',
+    },
+    pushToken: {
       type: String,
       required: false,
-      default: 'srb'
-    }
+    },
+    permissions: {},
+    settings: {
+      defaults: {
+        courier: {
+          type: String,
+          required: false,
+          default: '',
+        },
+        listProductsBy: {
+          type: String,
+          required: false,
+          default: 'category',
+        },
+        theme: {
+          type: String,
+          required: false,
+          default: 'light',
+        },
+      },
+      language: {
+        type: String,
+        required: false,
+        default: 'srb',
+      },
+    },
   },
-}, { timestamps: true }); 
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("User", UserSchema);
+module.exports = mongoose.model('User', UserSchema);

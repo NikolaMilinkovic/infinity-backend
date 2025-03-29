@@ -44,28 +44,29 @@ app.use(express.static(path.join(__dirname, 'public')));
 authModule.initializeAuth(app);
 // =====================[ \AUTH ]=====================
 
-
 // ===============[ MongoDB connection ]=============== //
 const conn_string = process.env.DB_URL;
-mongoose.connect(conn_string)
-.then(() => {
-  initializeAppSettings();
-  initializeProductDisplayCounter();
-  initializeLastUpdatedTracker();
-}).catch((error) => {
-  console.error('MongoDB connection error', error);
-});
+mongoose
+  .connect(conn_string)
+  .then(() => {
+    initializeAppSettings();
+    initializeProductDisplayCounter();
+    initializeLastUpdatedTracker();
+  })
+  .catch((error) => {
+    console.error('MongoDB connection error', error);
+  });
 const database = mongoose.connection;
-if(database){
+if (database) {
   console.log('> Connected to Database');
 }
 database.on('error', console.error.bind(console, 'mongo connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
-// Call seedPurses on server start, creates 1000 purse 
+// Call seedPurses on server start, creates 1000 purse
 // const { seedPurses } = require('./utils/testDummyData');
 // mongoose.connection.once('open', async () => {
-  // await seedPurses(1000);
+// await seedPurses(1000);
 // });
 
 // Example usage of adding new user on startup
@@ -84,11 +85,15 @@ ensureLastUpdatedDocument();
 // const { getSumOfAllProducts } = require('./utils/helperMethods');
 // getSumOfAllProducts();
 
+// =====================[ NODE-CRON SCHEDULERS ]=====================
+const startAllSchedulers = require('./schedulers/scheduler');
+startAllSchedulers();
+// =====================[ \NODE-CRON SCHEDULERS ]=====================
+
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
 // app.post('/verify-user', authModule.verifyUser);
 // =====================[ \UNPROTECTED ROUTES ]=====================
-
 
 // =====================[ PROTECTED ROUTERS ]======================
 app.use(authModule.authenticateJWT);
@@ -120,7 +125,6 @@ app.use('/suppliers', suppliersRouter);
 const lastUpdatedRouter = require('./routers/updatesTracker');
 app.use('/last-updated', lastUpdatedRouter);
 // =====================[ \PROTECTED ROUTERS ]=====================
-
 
 // =====================[ ERROR HANDLERS ]======================
 const errorHandler = require('./controllers/errorController');

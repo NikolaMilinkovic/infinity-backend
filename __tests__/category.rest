@@ -1,5 +1,5 @@
 ### Token reference
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmZkYjA4YzM2N2QzZmYxOGRkZmM2YmYiLCJpYXQiOjE3MjgzODgyMzEsImV4cCI6MjA0Mzk2NDIzMX0.9_ylHmcm14Mpj5hbe1n2mLr0WjAvd3t6WaWbCl6i6Kk
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2N2FhMmE2NmU4MmE0NGQzMzk5MTg1NjQiLCJpYXQiOjE3NDEyNTI0MjcsImV4cCI6MjA1NjgyODQyN30.aLzmngMnfDYPUOUCcvLdR8MbUcYzCudXoHCThctjNGk
 
 ### Simulate Login Request
 POST http://localhost:3000/login
