@@ -10,7 +10,7 @@ const sendNotificationToAll = require('../../utils/notifications/sendNotificatio
 const startReservationsCheck = () => {
   async function task() {
     try {
-      const date = getDayStartEndTimeForTimezone();
+      const date = getDayStartEndTimeForTimezone('Europe/Belgrade', 1);
       const orders = await Order.find({
         reservation: true,
         reservationDate: {

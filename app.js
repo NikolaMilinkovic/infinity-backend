@@ -72,7 +72,15 @@ database.on('error', console.error.bind(console, 'mongo connection error'));
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('Nikola', 'Nikola');
-const { updateProductsWithNewFields, updateAllUsersWithNewFields } = require('./utils/updateAllOnStartup');
+const {
+  updateProductsWithNewFields,
+  updateAllUsersWithNewFields,
+  updateTotalDressStock,
+  updateTotalPurseStock,
+} = require('./utils/updateAllOnStartup');
+
+// updateTotalDressStock();
+// updateTotalPurseStock();
 
 // Script that goes through all users and adds them the missing fields
 // Doesnt rewrite the currently set fields, it skips them

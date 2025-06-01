@@ -1,10 +1,10 @@
-const CustomError = require("../../utils/CustomError");
-const Dress = require("../../schemas/dress");
-const DressColor = require("../../schemas/dressColor");
+const CustomError = require('../../utils/CustomError');
+const Dress = require('../../schemas/dress');
+const DressColor = require('../../schemas/dressColor');
 const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
-const { uploadMediaToS3 } = require("../../utils/s3/S3DefaultMethods");
-const { betterErrorLog } = require("../../utils/logMethods");
-const { updateLastUpdatedField } = require("../../utils/helperMethods");
+const { uploadMediaToS3 } = require('../../utils/s3/S3DefaultMethods');
+const { betterErrorLog } = require('../../utils/logMethods');
+const { updateLastUpdatedField } = require('../../utils/helperMethods');
 
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
@@ -12,7 +12,9 @@ exports.addDress = async (req, res, next) => {
     const { name, category, stockType, price, colors, description, supplier } = req.body;
     let image;
     if (!name || !category || !price || !stockType || colors.length === 0 || !req.file)
-      return next(new CustomError('Vrednost za ime, kategoriju, jedinicu asortimana, cenu, boju ili sliku nije pronađena', 404));
+      return next(
+        new CustomError('Vrednost za ime, kategoriju, jedinicu asortimana, cenu, boju ili sliku nije pronađena', 404)
+      );
 
     // Upload to S3
     if (req.file) {
@@ -21,13 +23,20 @@ exports.addDress = async (req, res, next) => {
 
     // Parse colors if they are a string
     let colorsArray = Array.isArray(colors) ? colors : JSON.parse(colors);
-    colorsArray.forEach(color => {
-      delete color._id
+    colorsArray.forEach((color) => {
+      delete color._id;
     });
 
     const insertedColors = await DressColor.insertMany(colorsArray);
     const colorIds = insertedColors.map((color) => color._id);
     const counter = await ProductDisplayCounter.findOne();
+
+    let totalStock = 0;
+    for (const color of insertedColors) {
+      for (const sizeObj of color.sizes) {
+        totalStock += sizeObj.stock;
+      }
+    }
 
     const newDress = new Dress({
       name,
@@ -38,7 +47,8 @@ exports.addDress = async (req, res, next) => {
       image,
       description,
       displayPriority: counter?.high || 1,
-      supplier
+      supplier,
+      totalStock,
     });
     counter.high += 1;
     await counter.save();
@@ -46,7 +56,7 @@ exports.addDress = async (req, res, next) => {
     const result = await newDress.save();
     const populatedDress = await Dress.findById(result._id).populate('colors');
     const io = req.app.locals.io;
-    if(io) {
+    if (io) {
       await updateLastUpdatedField('dressLastUpdatedAt', io);
       io.emit('activeDressAdded', populatedDress);
       io.emit('activeProductAdded', populatedDress);
@@ -58,40 +68,42 @@ exports.addDress = async (req, res, next) => {
     betterErrorLog('> Error Adding a dress:', error);
     return next(new CustomError('Došlo je do problema prilikom dodavanja proizvoda', statusCode));
   }
-}
+};
 
 // GET ACTIVE DRESSES
-exports.getAllActiveDresses = async(req, res, next) => {
-  try{
+exports.getAllActiveDresses = async (req, res, next) => {
+  try {
     const dresses = await Dress.find({ active: true }).populate('colors').sort({ displayPriority: -1 });
     res.status(200).json(dresses);
-
-  } catch(error){
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetchuing informations about active dresses:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o aktivnim haljinama', statusCode));  
+    return next(
+      new CustomError('Došlo je do problema prilikom preuzimanja informacija o aktivnim haljinama', statusCode)
+    );
   }
 };
 
 // GET INACTIVE DRESSES
-exports.getAllInactiveDresses = async(req, res, next) => {
-  try{
+exports.getAllInactiveDresses = async (req, res, next) => {
+  try {
     const dresses = await Dress.find({ active: false }).populate('colors').sort({ _id: -1 });
     res.status(200).json(dresses);
-
-  } catch(error){
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetchuing informations about inactive dresses:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja informacija o neaktivnim haljinama', statusCode));    
+    return next(
+      new CustomError('Došlo je do problema prilikom preuzimanja informacija o neaktivnim haljinama', statusCode)
+    );
   }
 };
 
 // DELETE A DRESS
-exports.deleteDress = async(req, res, next) => {
-  try{
+exports.deleteDress = async (req, res, next) => {
+  try {
     const { id } = req.params;
     const dress = await Dress.findById(id);
-    if(!dress){
+    if (!dress) {
       return next(new CustomError(`Haljina sa ID: ${id} nije pronađena`, 404));
     }
 
@@ -105,7 +117,7 @@ exports.deleteDress = async(req, res, next) => {
 
     // Delete the Dress object
     const deletedDress = await Dress.findByIdAndDelete(id);
-    if(!deletedDress){
+    if (!deletedDress) {
       return next(new CustomError(`Haljina sa ID: ${id} nije pronađena`, 404));
     }
 
@@ -122,12 +134,12 @@ exports.deleteDress = async(req, res, next) => {
       await updateLastUpdatedField('dressLastUpdatedAt', io);
     }
 
-
-    res.status(200).json({ message: `Proizvod pod imenom ${deletedDress.name} je uspešno obrisan`, dress: deletedDress });
-
-  } catch(error){
+    res
+      .status(200)
+      .json({ message: `Proizvod pod imenom ${deletedDress.name} je uspešno obrisan`, dress: deletedDress });
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error deleting a product:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja brisanja proizvoda', statusCode)); 
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja brisanja proizvoda', statusCode));
   }
-}
+};

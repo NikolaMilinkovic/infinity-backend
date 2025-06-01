@@ -2,12 +2,12 @@ const Order = require('../schemas/order');
 const DressColor = require('../schemas/dressColor');
 const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
-const { betterConsoleLog } = require('./logMethods');
+const { betterConsoleLog, betterErrorLog } = require('./logMethods');
 const mongoose = require('mongoose');
 
 /**
  * Removes a single order by its ID.
- * 
+ *
  * @param {string} orderId
  * @returns {Promise<Object|null>}
  */
@@ -25,7 +25,7 @@ async function removeOrderById(orderId, req) {
     // Arrays to collect updates for different product types
     const dressUpdates = [];
     const purseUpdates = [];
-    
+
     // Process all products in the order
     for (const item of orderData.products) {
       if (!item.itemReference || !item.selectedColorId) {
@@ -37,9 +37,7 @@ async function removeOrderById(orderId, req) {
 
       if (item.stockType === 'Boja-Veličina-Količina') {
         // Handle dress stock update
-        const colorItem = await DressColor.findById(item.selectedColorId)
-          .populate('sizes')
-          .session(session);
+        const colorItem = await DressColor.findById(item.selectedColorId).populate('sizes').session(session);
 
         if (!colorItem) {
           throw new CustomError(`DressColorItem sa ID: ${item.selectedColorId} nije pronađen`, 404);
@@ -53,7 +51,10 @@ async function removeOrderById(orderId, req) {
         size.stock += quantity;
 
         if (size.stock < 0) {
-          throw new CustomError(`Invalid stock update would result in negative stock for DressColor ${item.selectedColorId} Size ${item.selectedSizeId}`, 400);
+          throw new CustomError(
+            `Invalid stock update would result in negative stock for DressColor ${item.selectedColorId} Size ${item.selectedSizeId}`,
+            400
+          );
         }
 
         colorItem.markModified('sizes');
@@ -65,9 +66,8 @@ async function removeOrderById(orderId, req) {
           colorId: item.selectedColorId,
           sizeId: item.selectedSizeId,
           increment: quantity,
-          stockType: item.stockType
+          stockType: item.stockType,
         });
-
       } else {
         // Handle purse stock update
         const colorItem = await PurseColor.findById(item.selectedColorId).session(session);
@@ -78,7 +78,10 @@ async function removeOrderById(orderId, req) {
         colorItem.stock += quantity;
 
         if (colorItem.stock < 0) {
-          throw new CustomError(`Invalid stock update would result in negative stock for PurseColor ${item.selectedColorId}`, 400);
+          throw new CustomError(
+            `Invalid stock update would result in negative stock for PurseColor ${item.selectedColorId}`,
+            400
+          );
         }
 
         await colorItem.save({ session });
@@ -88,7 +91,7 @@ async function removeOrderById(orderId, req) {
           purseId: item.itemReference,
           colorId: item.selectedColorId,
           increment: quantity,
-          stockType: item.stockType
+          stockType: item.stockType,
         });
       }
     }
@@ -106,20 +109,19 @@ async function removeOrderById(orderId, req) {
       io.emit('orderRemoved', orderId);
 
       // Emit individual dress updates
-      dressUpdates.forEach(data => {
+      dressUpdates.forEach((data) => {
         io.emit('handleDressStockIncrease', data);
         io.emit('allProductStockIncrease', data);
       });
 
       // Emit individual purse updates
-      purseUpdates.forEach(data => {
+      purseUpdates.forEach((data) => {
         io.emit('handlePurseStockIncrease', data);
         io.emit('allProductStockIncrease', data);
       });
     }
 
     return deletedOrder;
-
   } catch (error) {
     // Rollback transaction on error
     await session.abortTransaction();
@@ -132,12 +134,11 @@ async function removeOrderById(orderId, req) {
 
 /**
  * Removes a batch of orders by their IDs.
- * 
+ *
  * @param {string[]} orderIds
  * @returns {Promise<{ acknowledged: boolean, deletedCount: number }>}
  */
 async function removeBatchOrdersById(orderIds, req) {
-  
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -176,13 +177,13 @@ async function removeBatchOrdersById(orderIds, req) {
 
           const key = `${product.selectedColorId}-${product.selectedSizeId}`;
           if (!dressColorUpdates.has(key)) {
-            dressColorUpdates.set(key, { 
-              colorId: product.selectedColorId, 
-              sizeId: product.selectedSizeId, 
-              increment: 0 
+            dressColorUpdates.set(key, {
+              colorId: product.selectedColorId,
+              sizeId: product.selectedSizeId,
+              increment: 0,
             });
           }
-          dressColorUpdates.get(key).increment += (product.quantity || 1);
+          dressColorUpdates.get(key).increment += product.quantity || 1;
         } else {
           const purseUpdateData = {
             purseId: product.itemReference,
@@ -195,7 +196,7 @@ async function removeBatchOrdersById(orderIds, req) {
             purseColorUpdates.set(product.selectedColorId, 0);
           }
           purseColorUpdates.set(
-            product.selectedColorId, 
+            product.selectedColorId,
             purseColorUpdates.get(product.selectedColorId) + (product.quantity || 1)
           );
         }
@@ -218,7 +219,10 @@ async function removeBatchOrdersById(orderIds, req) {
         size.stock += increment;
 
         if (size.stock < 0) {
-          throw new CustomError(`Invalid stock update would result in negative stock for DressColor ${colorId} Size ${sizeId}`, 400);
+          throw new CustomError(
+            `Invalid stock update would result in negative stock for DressColor ${colorId} Size ${sizeId}`,
+            400
+          );
         }
 
         colorItem.markModified('sizes');
@@ -245,10 +249,7 @@ async function removeBatchOrdersById(orderIds, req) {
     );
 
     // Delete orders
-    const deletedOrders = await Order.deleteMany(
-      { _id: { $in: orderIds } },
-      { session }
-    );
+    const deletedOrders = await Order.deleteMany({ _id: { $in: orderIds } }, { session });
 
     // Commit transaction
     await session.commitTransaction();
@@ -262,7 +263,6 @@ async function removeBatchOrdersById(orderIds, req) {
     }
 
     return deletedOrders;
-
   } catch (error) {
     // If there's an error, rollback the transaction
     await session.abortTransaction();
@@ -276,5 +276,5 @@ async function removeBatchOrdersById(orderIds, req) {
 
 module.exports = {
   removeOrderById,
-  removeBatchOrdersById
-}
+  removeBatchOrdersById,
+};

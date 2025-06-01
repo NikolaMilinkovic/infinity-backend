@@ -1,21 +1,22 @@
-const CustomError = require("../utils/CustomError");
-const { betterErrorLog, betterConsoleLog } = require("../utils/logMethods");
-const { parseOrderData } = require("../utils/ai/AiMethods");
-const { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 } = require("../utils/s3/S3DefaultMethods");
+const CustomError = require('../utils/CustomError');
+const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
+const { parseOrderData } = require('../utils/ai/AiMethods');
+const { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 } = require('../utils/s3/S3DefaultMethods');
 const Orders = require('../schemas/order');
 const ProcessedOrders = require('../schemas/processedOrdersForPeriod');
-const { dressColorStockHandler, dressBatchColorStockHandler } = require("../utils/dressStockMethods");
-const { purseColorStockHandler, purseBatchColorStockHandler } = require("../utils/purseStockMethods");
-const { removeOrderById, removeBatchOrdersById } = require("../utils/ordersMethods");
+const { dressColorStockHandler, dressBatchColorStockHandler } = require('../utils/dressStockMethods');
+const { purseColorStockHandler, purseBatchColorStockHandler } = require('../utils/purseStockMethods');
+const { removeOrderById, removeBatchOrdersById } = require('../utils/ordersMethods');
 const { compareAndUpdate } = require('../utils/compareMethods');
 const mongoose = require('mongoose');
 const ProcessedOrdersForPeriod = require('../schemas/processedOrdersForPeriod');
 const { normalizeReservationDate } = require('../utils/dateMethods');
-const { updateLastUpdatedField } = require("../utils/helperMethods");
+const { updateLastUpdatedField } = require('../utils/helperMethods');
+const Dress = require('../schemas/dress');
+const Purse = require('../schemas/purse');
 
-
-exports.addOrder = async(req, res, next) => {
-  try{
+exports.addOrder = async (req, res, next) => {
+  try {
     const buyerData = JSON.parse(req.body.buyerData);
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
@@ -26,7 +27,7 @@ exports.addOrder = async(req, res, next) => {
     const packed = req.body.packed === 'true';
     const processed = req.body.processed === 'true';
     const courier = JSON.parse(req.body.courier);
-    const weight = req.body?.weight || 0.5;
+    const weight = req.body?.weight || 1;
     const value = req.body?.value || '';
     const internalRemark = req.body?.internalRemark || '';
     const deliveryRemark = req.body?.deliveryRemark || '';
@@ -34,22 +35,22 @@ exports.addOrder = async(req, res, next) => {
     const reservationDate = normalizeReservationDate(req.body?.reservationDate) || '';
 
     if (
-      !buyerData                           || // Check if buyerData exists
-      !productData                         || // Check if productData exists (use ! instead of length check)
-      !Array.isArray(productData)          || // Ensure productData is an array
-      productData.length === 0             || // Check if productData is empty
-      !productsPrice                       || // Check if productsPrice exists
-      !totalPrice                          || // Check if totalPrice exists
-      typeof reservation !== 'boolean'     || // Check if reservation is a boolean
+      !buyerData || // Check if buyerData exists
+      !productData || // Check if productData exists (use ! instead of length check)
+      !Array.isArray(productData) || // Ensure productData is an array
+      productData.length === 0 || // Check if productData is empty
+      !productsPrice || // Check if productsPrice exists
+      !totalPrice || // Check if totalPrice exists
+      typeof reservation !== 'boolean' || // Check if reservation is a boolean
       typeof packedIndicator !== 'boolean' || // Check if reservation is a boolean
-      typeof packed !== 'boolean'          || // Check if packed is a boolean
-      typeof processed !== 'boolean'       || // Check if processed is a boolean
-      !courier                             || // Check if courier exists
-      !req.file                               // Check if a file was uploaded
+      typeof packed !== 'boolean' || // Check if packed is a boolean
+      typeof processed !== 'boolean' || // Check if processed is a boolean
+      !courier || // Check if courier exists
+      !req.file // Check if a file was uploaded
     ) {
       return next(new CustomError('Nepotpuni podaci za dodavanje nove porudžbine', 404));
     }
-    
+
     // Extract profile image
     let profileImage;
     if (req.file) {
@@ -58,7 +59,7 @@ exports.addOrder = async(req, res, next) => {
 
     productData.forEach((product) => {
       product.itemReference = product.itemReference._id;
-    })
+    });
 
     // NEW ORDER
     const order = new Orders({
@@ -83,7 +84,7 @@ exports.addOrder = async(req, res, next) => {
       processed: processed,
       courier: {
         name: courier.name,
-        deliveryPrice: courier.deliveryPrice
+        deliveryPrice: courier.deliveryPrice,
       },
       weight: weight,
       value: value,
@@ -104,192 +105,200 @@ exports.addOrder = async(req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
     let dressUpdateData = [];
     let purseUpdateData = [];
-    
+
     // SOCKETS | Handles updates in the database & on client
-    for(const product of productData){
-      try{
-        if(product.stockType === 'Boja-Veličina-Količina'){
+    for (const product of productData) {
+      try {
+        if (product.stockType === 'Boja-Veličina-Količina') {
           // Update the dress stock in DB
-          const updatedItem = await dressColorStockHandler(product.selectedColorId, product.selectedSizeId, 'decrement', 1, next)
-          if(!updatedItem) return;
-  
+          const updatedItem = await dressColorStockHandler(
+            product.selectedColorId,
+            product.selectedSizeId,
+            'decrement',
+            1,
+            next
+          );
+          const dress = await Dress.findById(product.itemReference);
+          dress.totalStock -= 1;
+          await dress.save();
+          if (!updatedItem) return;
+
           // Check and update item status if needed
           // Commented out because we want to see when item is out of stock
           // If item is not active it will not be displayed in browse products
           // const checkedItem = await updateDressActiveStatus(product.itemReference._id);
           // if(!checkedItem) return;
-  
+
           // Emit new dress stock
           const dressData = {
             stockType: product.stockType,
             dressId: product.itemReference,
             colorId: product.selectedColorId,
             sizeId: product.selectedSizeId,
-            decrement: 1
-          }
+            decrement: 1,
+          };
           dressUpdateData.push(dressData);
         } else {
-  
           // Update the purse stock in DB
-          const updatedItem = await purseColorStockHandler(product.selectedColorId, 'decrement', 1, next)
-          if(!updatedItem) return;
-  
+          const updatedItem = await purseColorStockHandler(product.selectedColorId, 'decrement', 1, next);
+          const purse = await Purse.findById(product.itemReference);
+          purse.totalStock -= 1;
+          await purse.save();
+          if (!updatedItem) return;
+
           // Check and update item status if needed
           // Commented out because we want to see when item is out of stock
           // If item is not active it will not be displayed in browse products
           // const checkedItem = await updatePurseActiveStatus(product.itemReference._id);
           // if(!checkedItem) return;
-  
+
           // Emit new purse stock
           const purseData = {
             stockType: product.stockType,
             purseId: product.itemReference,
             colorId: product.selectedColorId,
-            decrement: 1
-          }
+            decrement: 1,
+          };
           purseUpdateData.push(purseData);
         }
-      } catch(error) {
+      } catch (error) {
         console.error(error);
       }
     }
-    if(dressUpdateData.length > 0){
+    if (dressUpdateData.length > 0) {
       io.emit('handleDressStockDecrease', dressUpdateData);
       io.emit('allProductStockDecrease', dressUpdateData);
     }
-    if(purseUpdateData.length > 0){
+    if (purseUpdateData.length > 0) {
       io.emit('handlePurseStockDecrease', purseUpdateData);
       io.emit('allProductStockDecrease', purseUpdateData);
     }
     return res.status(200).json({ message: 'Porudžbina uspešno dodata' });
-  } catch(error){
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding an order:', error);
-    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));   
+    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));
   }
-}
+};
 
-exports.getProcessedOrders = async(req, res, next) => {
-  try{
+exports.getProcessedOrders = async (req, res, next) => {
+  try {
     const orders = await Orders.find({ processed: true }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Procesovane porudžbine uspešno preuzete', orders });
-
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching processed orders:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));  
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));
   }
-}
+};
 
-exports.getUnprocessedOrders = async(req, res, next) => {
-  try{
+exports.getUnprocessedOrders = async (req, res, next) => {
+  try {
     const orders = await Orders.find({ processed: false }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Neprocesovane porudžbine uspešno preuzete', orders });
-
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching unprocessed orders:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));  
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));
   }
-}
+};
 
-exports.getUnpackedOrders = async(req, res, next) => {
-  try{
+exports.getUnpackedOrders = async (req, res, next) => {
+  try {
     const orders = await Orders.find({ packed: false, packedIndicator: false }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Nespakovane porudžbine uspešno preuzete', orders });
-
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching unpacked orders:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja nespakovanih porudžbina', statusCode));  
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja nespakovanih porudžbina', statusCode));
   }
-}
+};
 
-exports.parseOrder = async(req, res, next) => {
-  try{
+exports.parseOrder = async (req, res, next) => {
+  try {
     const { orderData } = req.body;
-    if(!orderData){
+    if (!orderData) {
       return next(new CustomError(`Došlo je do problema prilikom parsiranja podataka o kupcu.`, 400));
     }
 
     const response = await JSON.parse(await parseOrderData(orderData));
     res.status(200).json({ message: `Podaci su uspešno parsirani`, data: response });
-
-  } catch(error){
+  } catch (error) {
     betterErrorLog('> Error parsing order data via AI:', error);
     return next(new CustomError('There was an error while parsing order data via AI', 500));
   }
-}
+};
 
 // DELETE BATCH ORDERS
 exports.removeOrdersBatch = async (req, res, next) => {
-  try{
+  try {
     // Array of order ids
     const orderIds = req.body;
     const io = req.app.locals.io;
 
     let response;
-    if(orderIds.length === 1) response = await removeOrderById(orderIds[0], req);
-    if(orderIds.length > 1) response = await removeBatchOrdersById(orderIds, req);
+    if (orderIds.length === 1) response = await removeOrderById(orderIds[0], req);
+    if (orderIds.length > 1) response = await removeBatchOrdersById(orderIds, req);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     // Generic field update to trigger fetch of updated data
     await updateLastUpdatedField('dressLastUpdatedAt', io);
     res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
-
-  } catch(error) {
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error during batch order delete:', error);
-    return next(new CustomError('Došlo je do problema prilikom brisanja porudžbina', statusCode)); 
+    return next(new CustomError('Došlo je do problema prilikom brisanja porudžbina', statusCode));
   }
-}
+};
 
 exports.getOrdersByDate = async (req, res, next) => {
-  try{
+  try {
     const dateParam = req.params.date;
     const selectedDate = new Date(dateParam);
-  
+
     if (isNaN(selectedDate.getTime())) {
       return next(new CustomError('Nevažeći format datuma', 400));
     }
-  
+
     const startOfDay = new Date(selectedDate);
     startOfDay.setUTCHours(0, 0, 0, 0);
-  
+
     const endOfDay = new Date(selectedDate);
     endOfDay.setUTCHours(23, 59, 59, 999);
     const orders = await Orders.find({
       createdAt: {
         $gte: startOfDay,
-        $lte: endOfDay
+        $lte: endOfDay,
       },
-      reservation: false
+      reservation: false,
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric'
+      year: 'numeric',
     });
-    
-    return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders })
-  } catch(error) {
+
+    return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders });
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while fetching order for date ${formattedDate}`, error);
-    return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)); 
+    return next(
+      new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)
+    );
   }
-}
+};
 
-exports.getOrdersForPeriodFromDate = async(req, res, next) => {
-  try{
+exports.getOrdersForPeriodFromDate = async (req, res, next) => {
+  try {
     console.log('> getOrdersForPeriodFromDate called');
     const dateParam = req.params.date;
     console.log(`> dateParam is ${dateParam}`);
     const selectedDate = new Date(dateParam);
-  
+
     if (isNaN(selectedDate.getTime())) {
       return next(new CustomError('Nevažeći format datuma', 400));
     }
-  
+
     const startOfDay = new Date(selectedDate);
     startOfDay.setUTCHours(0, 0, 0, 0);
     const currentDate = new Date();
@@ -297,64 +306,76 @@ exports.getOrdersForPeriodFromDate = async(req, res, next) => {
     const orders = await Orders.find({
       createdAt: {
         $gte: startOfDay,
-        $lte: currentDate
+        $lte: currentDate,
       },
-      reservation: false
+      reservation: false,
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric'
+      year: 'numeric',
     });
 
     betterConsoleLog('> Found orders: ', orders);
-    
-    return res.status(200).json({ message: `Porudžbine uspešno pronađene za period od ${formattedDate} pa do sada`, orders: orders })
 
-  } catch(error) {
+    return res
+      .status(200)
+      .json({ message: `Porudžbine uspešno pronađene za period od ${formattedDate} pa do sada`, orders: orders });
+  } catch (error) {
     const statusCode = error.statusCode || 500;
-    const formattedDate = req.params.date ? new Date(req.params.date).toLocaleDateString('sr-RS', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }) : 'izabranog datuma';
+    const formattedDate = req.params.date
+      ? new Date(req.params.date).toLocaleDateString('sr-RS', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
+      : 'izabranog datuma';
 
     betterErrorLog(`> Error while fetching orders for period from ${formattedDate} until now`, error);
-    return next(new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za period od ${formattedDate} do danas`, statusCode));
+    return next(
+      new CustomError(
+        `Došlo je do problema prilikom preuzimanja porudžbina za period od ${formattedDate} do danas`,
+        statusCode
+      )
+    );
   }
-}
+};
 
 exports.getReservationsByDate = async (req, res, next) => {
-  try{
+  try {
     const dateParam = req.params.date;
     const selectedDate = new Date(dateParam);
-  
+
     if (isNaN(selectedDate.getTime())) {
       return next(new CustomError('Nevažeći format datuma', 400));
     }
-  
+
     const queryDate = new Date(selectedDate);
     queryDate.setUTCHours(0, 0, 0, 0);
-  
+
     // const endOfDay = new Date(selectedDate);
     // endOfDay.setUTCHours(23, 59, 59, 999);
     const reservations = await Orders.find({
       reservationDate: queryDate,
-      reservation: true
+      reservation: true,
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric'
+      year: 'numeric',
     });
-    
-    return res.status(200).json({ message: `Rezervacije uspešno pronađene za datum ${formattedDate}`, reservations: reservations })
-  } catch(error) {
+
+    return res
+      .status(200)
+      .json({ message: `Rezervacije uspešno pronađene za datum ${formattedDate}`, reservations: reservations });
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while fetching reservations for date ${formattedDate}`, error);
-    return next(new CustomError(`Došlo je do problema prilikom preuzimanja rezervacija za datum ${formattedDate}`, statusCode)); 
+    return next(
+      new CustomError(`Došlo je do problema prilikom preuzimanja rezervacija za datum ${formattedDate}`, statusCode)
+    );
   }
-}
+};
 
 exports.updateOrder = async (req, res, next) => {
   try {
@@ -364,13 +385,13 @@ exports.updateOrder = async (req, res, next) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    const { 
-      name,           // string 
-      address,        // string
-      phone,          // number
-      phone2,         // number
-      bankNumber,     // string
-      place,          // string
+    const {
+      name, // string
+      address, // string
+      phone, // number
+      phone2, // number
+      bankNumber, // string
+      place, // string
       orderNotes,
     } = req.body;
 
@@ -388,7 +409,7 @@ exports.updateOrder = async (req, res, next) => {
     const deliveryRemark = req.body?.deliveryRemark || '';
 
     let reservationDate;
-    if(req.body?.reservationDate !== undefined){
+    if (req.body?.reservationDate !== undefined) {
       reservationDate = new Date(req.body?.reservationDate);
     } else {
       reservationDate = new Date();
@@ -398,54 +419,50 @@ exports.updateOrder = async (req, res, next) => {
 
     // Increment the stock for each removed product from the order
     const io = req.app.locals.io;
-    if(removedProducts.length > 0){
+    if (removedProducts.length > 0) {
       let dresses = [];
       let purses = [];
 
-      for(const item of order.products){
-        if(removedProducts.some((id) => id.toString() === item._id.toString())){
+      for (const item of order.products) {
+        if (removedProducts.some((id) => id.toString() === item._id.toString())) {
           let data;
           // Get correct data object for stock increase
-          item.stockType === 'Boja-Veličina-Količina' ? 
-            data = getDressIncrementData(item) :
-            data = getPurseIncrementData(item);
+          item.stockType === 'Boja-Veličina-Količina'
+            ? (data = getDressIncrementData(item))
+            : (data = getPurseIncrementData(item));
           // Push each data object to correct array based on stock type
-          item.stockType === 'Boja-Veličina-Količina' ? 
-            dresses.push(data) :
-            purses.push(data);
+          item.stockType === 'Boja-Veličina-Količina' ? dresses.push(data) : purses.push(data);
         }
       }
-      if(purses.length > 0) await purseBatchColorStockHandler(purses, 'increment', next);
-      if(dresses.length > 0) await dressBatchColorStockHandler(dresses, 'increment', next);
+      if (purses.length > 0) await purseBatchColorStockHandler(purses, 'increment', next);
+      if (dresses.length > 0) await dressBatchColorStockHandler(dresses, 'increment', next);
 
       const data = {
         dresses: dresses,
-        purses: purses
-      }
+        purses: purses,
+      };
       io.emit('batchStockIncrease', data);
     }
 
-    if(addedProducts.length > 0){
+    if (addedProducts.length > 0) {
       let dresses = [];
       let purses = [];
 
-      for(const item of addedProducts){
+      for (const item of addedProducts) {
         let data;
         // Get correct data object for stock decrease
-        item.stockType === 'Boja-Veličina-Količina' ? 
-          data = getDressIncrementData(item) :
-          data = getPurseIncrementData(item);
+        item.stockType === 'Boja-Veličina-Količina'
+          ? (data = getDressIncrementData(item))
+          : (data = getPurseIncrementData(item));
         // Push each data object to correct array based on stock type
-        item.stockType === 'Boja-Veličina-Količina' ? 
-          dresses.push(data) :
-          purses.push(data);
+        item.stockType === 'Boja-Veličina-Količina' ? dresses.push(data) : purses.push(data);
       }
-      if(purses.length > 0) await purseBatchColorStockHandler(purses, 'decrement', next);
-      if(dresses.length > 0) await dressBatchColorStockHandler(dresses, 'decrement', next);
+      if (purses.length > 0) await purseBatchColorStockHandler(purses, 'decrement', next);
+      if (dresses.length > 0) await dressBatchColorStockHandler(dresses, 'decrement', next);
       const data = {
         dresses: dresses,
-        purses: purses
-      }
+        purses: purses,
+      };
       io.emit('batchStockDecrease', data);
     }
 
@@ -467,7 +484,7 @@ exports.updateOrder = async (req, res, next) => {
     order.weight = compareAndUpdate(order.weight, weight);
     order.internalRemark = compareAndUpdate(order.internalRemark, internalRemark);
     order.deliveryRemark = compareAndUpdate(order.deliveryRemark, deliveryRemark);
-    
+
     if (profileImage && profileImage.originalname !== order.buyer.profileImage.imageName) {
       await deleteMediaFromS3(order.buyer.profileImage.imageName);
       const image = await uploadMediaToS3(profileImage, next);
@@ -488,44 +505,40 @@ exports.updateOrder = async (req, res, next) => {
 
 function compareProductArrays(oldProducts, newProducts) {
   // Get _id strings for products with an _id in oldProducts
-  const oldProductIds = oldProducts
-    .filter(product => product._id)
-    .map(product => product._id.toString());
+  const oldProductIds = oldProducts.filter((product) => product._id).map((product) => product._id.toString());
 
   // Get _id strings for products with an _id in newProducts
-  const newProductIds = newProducts
-    .filter(product => product._id)
-    .map(product => product._id.toString());
+  const newProductIds = newProducts.filter((product) => product._id).map((product) => product._id.toString());
 
   // Find removed products by comparing old ids with new ids
-  const removedProducts = oldProductIds.filter(id => !newProductIds.includes(id));
+  const removedProducts = oldProductIds.filter((id) => !newProductIds.includes(id));
 
   // Find added products by including products without _id and those with _id not in oldProductIds
   const addedProducts = [
-    ...newProducts.filter(product => !product._id),  // Products without _id are new
-    ...newProducts.filter(product => product._id && !oldProductIds.includes(product._id.toString()))  // Products with _id not in oldProducts
+    ...newProducts.filter((product) => !product._id), // Products without _id are new
+    ...newProducts.filter((product) => product._id && !oldProductIds.includes(product._id.toString())), // Products with _id not in oldProducts
   ];
 
   return { removedProducts, addedProducts };
 }
-function getDressIncrementData(item){
+function getDressIncrementData(item) {
   return {
     dressId: item.itemReference.toString(),
     colorId: item.selectedColorId,
     sizeId: item.selectedSizeId,
     increment: 1,
-  }
+  };
 }
-function getPurseIncrementData(item){
+function getPurseIncrementData(item) {
   return {
     purseId: item.itemReference.toString(),
     colorId: item.selectedColorId,
     increment: 1,
-  }
+  };
 }
 
 exports.setIndicatorToTrue = async (req, res, next) => {
-  try{
+  try {
     const { id } = req.params;
     await Orders.findByIdAndUpdate(id, { packedIndicator: true });
     const io = req.app.locals.io;
@@ -533,15 +546,15 @@ exports.setIndicatorToTrue = async (req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Success' });
-  } catch(error) {
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating package indicator to true', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
-}
+};
 
 exports.setIndicatorToFalse = async (req, res, next) => {
-  try{
+  try {
     const { id } = req.params;
     await Orders.findByIdAndUpdate(id, { packedIndicator: false });
     const io = req.app.locals.io;
@@ -549,91 +562,94 @@ exports.setIndicatorToFalse = async (req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Success' });
-  } catch(error) {
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating package indicator to false', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
-}
+};
 
 exports.packOrdersByIds = async (req, res, next) => {
-  try{
+  try {
     const { packedIds } = req.body;
     const operations = packedIds.map((id) => ({
       updateOne: {
         filter: { _id: new mongoose.Types.ObjectId(`${id}`) },
-        update: { $set: { packed: true } }
-      }
-    }))
+        update: { $set: { packed: true } },
+      },
+    }));
     await Orders.collection.bulkWrite(operations);
     const io = req.app.locals.io;
     io.emit('packOrdersByIds', packedIds);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
-  } catch(error) {
+  } catch (error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error while packing orders by ID\'s', error);
+    betterErrorLog("> Error while packing orders by ID's", error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
   }
-}
+};
 
 exports.batchReservationsToCourier = async (req, res, next) => {
-  try{
+  try {
     const { courier, reservations } = req.body;
     const operations = reservations.map((reservation) => ({
       updateOne: {
         filter: { _id: new mongoose.Types.ObjectId(`${reservation._id}`) },
         update: [
-          { 
-            $set: { 
+          {
+            $set: {
               reservation: false,
               courier: {
                 name: courier.name,
-                deliveryPrice: courier.deliveryPrice
+                deliveryPrice: courier.deliveryPrice,
               },
-            }
+            },
           },
           {
-            $set: { 
-              totalPrice: { 
-                $add: [ '$productsPrice', courier.deliveryPrice ]
-              }
-            }
-          }
-        ]
-      }
+            $set: {
+              totalPrice: {
+                $add: ['$productsPrice', courier.deliveryPrice],
+              },
+            },
+          },
+        ],
+      },
     }));
 
     const io = req.app.locals.io;
     const data = {
       courier,
       reservations,
-    }
+    };
     io.emit('reservationsToOrders', data);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     const result = await Orders.bulkWrite(operations);
-    res.status(200).json({ mesasge: 'Rezervacije uspešno prebačene u porudžbine' })
-
-  } catch(error) {
+    res.status(200).json({ mesasge: 'Rezervacije uspešno prebačene u porudžbine' });
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while transfering batch reservations courier ${courier.name}`, error);
     return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode));
   }
-}
+};
 
 exports.parseOrdersForLatestPeriod = async (req, res, next) => {
-  try{
+  try {
     const { fileName, fileData, courier } = req.body;
     let uploadedFile;
     if (fileData) {
       const buffer = Buffer.from(fileData, 'base64');
-      uploadedFile = await uploadFileToS3({ buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }, next);
+      uploadedFile = await uploadFileToS3(
+        { buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+        next
+      );
       // uri & fileName
     }
     // Get all orders that are active, not a reservation, and for specific courier
-    const orders = await Orders.find({ processed: false, reservation: false, 'courier.name': courier  });
+    const orders = await Orders.find({ processed: false, reservation: false, 'courier.name': courier });
+    betterConsoleLog('> Logging orders', orders);
     const totalSalesValue = getTotalSalesValue(orders);
     const averageOrderValue = getAverageOrderValue(totalSalesValue, orders.length);
     const salesPerStockType = getSalesPerStockType(orders);
@@ -661,11 +677,8 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     await newProcessedOrder.save();
 
     // Update each order processed field to true
-    const orderIds = orders.map(order => order._id);
-    await Orders.updateMany(
-      { _id: { $in: orderIds } },
-      { $set: { processed: true } }
-    );
+    const orderIds = orders.map((order) => order._id);
+    await Orders.updateMany({ _id: { $in: orderIds } }, { $set: { processed: true } });
 
     const io = req.app.locals.io;
     io.emit('processOrdersByIds', orderIds);
@@ -673,21 +686,23 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     io.emit('addNewStatisticFile', newProcessedOrder);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
-  } catch (error){
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error parsing orders during excell file generation', error);
-    return next(new CustomError('Došlo je do problema prilikom parsiranja porudžbina i generisanja exell-a', statusCode));
+    return next(
+      new CustomError('Došlo je do problema prilikom parsiranja porudžbina i generisanja exell-a', statusCode)
+    );
   }
-}
+};
 
-function getTotalSalesValue(orders){
+function getTotalSalesValue(orders) {
   let totalSalesValue = 0;
-  for(const order of orders){
+  for (const order of orders) {
     totalSalesValue += order.totalPrice;
   }
   return totalSalesValue;
 }
-function getAverageOrderValue(totalSalesValue, numOfOrders){
+function getAverageOrderValue(totalSalesValue, numOfOrders) {
   return Math.round(totalSalesValue / numOfOrders);
 }
 function getTopAndWorstPerformingProducts(orders) {
@@ -700,45 +715,45 @@ function getTopAndWorstPerformingProducts(orders) {
       } else {
         productSales[product.itemReference] = {
           name: product.name,
-          amountSold: 1
+          amountSold: 1,
         };
       }
     }
   }
 
   const top = Object.entries(productSales)
-                    .sort(([, a], [, b]) => b.amountSold - a.amountSold)
-                    .slice(0, 3)
-                    .map(([id, { name, amountSold }]) => ({
-                      id,
-                      name,
-                      amountSold
-                    }));
+    .sort(([, a], [, b]) => b.amountSold - a.amountSold)
+    .slice(0, 3)
+    .map(([id, { name, amountSold }]) => ({
+      id,
+      name,
+      amountSold,
+    }));
 
   const worst = Object.entries(productSales)
-                      .sort(([, a], [, b]) => a.amountSold - b.amountSold)
-                      .slice(0, 3)
-                      .map(([id, { name, amountSold }]) => ({
-                        id,
-                        name,
-                        amountSold
-                      }));
+    .sort(([, a], [, b]) => a.amountSold - b.amountSold)
+    .slice(0, 3)
+    .map(([id, { name, amountSold }]) => ({
+      id,
+      name,
+      amountSold,
+    }));
 
   return { top, worst };
 }
-function getNumberOfOrdersByCategory(orders){
+function getNumberOfOrdersByCategory(orders) {
   let ordersPerCategory = {};
 
-  for(const order of orders) {
-    for(const product of order.products){
-      if(ordersPerCategory[product.category]){
+  for (const order of orders) {
+    for (const product of order.products) {
+      if (ordersPerCategory[product.category]) {
         ordersPerCategory[product.category].totalValue += product.price;
         ordersPerCategory[product.category].amountSold += 1;
       } else {
         ordersPerCategory[product.category] = {
           category: product.category,
           totalValue: product.price,
-          amountSold: 1
+          amountSold: 1,
         };
       }
     }
@@ -747,18 +762,18 @@ function getNumberOfOrdersByCategory(orders){
   const sortedData = Object.values(ordersPerCategory).sort((a, b) => b.amountSold - a.amountSold);
   return sortedData;
 }
-function getPerColorSold(orders){
+function getPerColorSold(orders) {
   let perColor = {};
 
-  for(const order of orders){
-    for(const product of order.products){
-      if(perColor[product.selectedColor]){
+  for (const order of orders) {
+    for (const product of order.products) {
+      if (perColor[product.selectedColor]) {
         perColor[product.selectedColor].amountSold += 1;
       } else {
         perColor[product.selectedColor] = {
           color: product.selectedColor,
           amountSold: 1,
-        }
+        };
       }
     }
   }
@@ -766,11 +781,11 @@ function getPerColorSold(orders){
   const sortedData = Object.values(perColor).sort((a, b) => b.amountSold - a.amountSold);
   return sortedData;
 }
-function getPerLocationSales(orders){
+function getPerLocationSales(orders) {
   let perLocation = {};
 
-  for(const order of orders){
-    if(perLocation[order.buyer.place]){
+  for (const order of orders) {
+    if (perLocation[order.buyer.place]) {
       perLocation[order.buyer.place].amountSold += 1;
       perLocation[order.buyer.place].totalValue += order.totalPrice;
     } else {
@@ -778,18 +793,18 @@ function getPerLocationSales(orders){
         location: order.buyer.place,
         amountSold: 1,
         totalValue: order.totalPrice,
-      }
+      };
     }
   }
   const sortedData = Object.values(perLocation).sort((a, b) => b.amountSold - a.amountSold);
   return sortedData;
 }
-function getPerProductStats(orders){
+function getPerProductStats(orders) {
   let perProduct = {};
 
-  for(const order of orders){
-    for(const product of order.products){
-      if(perProduct[product.itemReference]){
+  for (const order of orders) {
+    for (const product of order.products) {
+      if (perProduct[product.itemReference]) {
         perProduct[product.itemReference].productTotalSalesValue += product.price;
         perProduct[product.itemReference].amountSold += 1;
         // handle selected size update
@@ -820,7 +835,6 @@ function getPerProductStats(orders){
             });
           }
         }
-
       } else {
         perProduct[product.itemReference] = {
           productReference: product.itemReference,
@@ -830,13 +844,9 @@ function getPerProductStats(orders){
           productTotalSalesValue: product.price,
           amountSold: 1,
           productImage: product.image,
-          perSizeSold: product.selectedSize
-          ? [{ size: product.selectedSize, amountSold: 1 }]
-          : [],
-          perColorSold: product.selectedColor
-          ? [{ color: product.selectedColor, amountSold: 1 }]
-          : [],
-        }
+          perSizeSold: product.selectedSize ? [{ size: product.selectedSize, amountSold: 1 }] : [],
+          perColorSold: product.selectedColor ? [{ color: product.selectedColor, amountSold: 1 }] : [],
+        };
       }
     }
   }
@@ -847,13 +857,13 @@ function getPerProductStats(orders){
 function getSalesPerStockType(orders) {
   let perStockType = {};
   let checkedOrders = orders;
-  for(const order of checkedOrders){
-    for(const product of order.products){
-      if(!product.stockType){
-        if(product.selectedSize){
-          product.stockType = 'Boja-Veličina-Količina'
+  for (const order of checkedOrders) {
+    for (const product of order.products) {
+      if (!product.stockType) {
+        if (product.selectedSize) {
+          product.stockType = 'Boja-Veličina-Količina';
         } else {
-          product.stockType = 'Boja-Veličina'
+          product.stockType = 'Boja-Veličina';
         }
       }
     }
@@ -884,18 +894,20 @@ exports.getOrderStatisticFilesForPeriod = async (req, res, next) => {
   try {
     const today = new Date();
     const startOf30DaysAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30);
-    
+
     const endOfToday = new Date(today);
     endOfToday.setHours(23, 59, 59, 999);
 
     const files = await ProcessedOrders.find({
-      createdAt: { $gte: startOf30DaysAgo, $lte: endOfToday }
-    }).sort({ createdAt: -1});
+      createdAt: { $gte: startOf30DaysAgo, $lte: endOfToday },
+    }).sort({ createdAt: -1 });
 
     res.status(200).json({ message: 'Podaci uspešno preuzeti', data: files });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching processed orders for period:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja procesovanih porudžbina / statistike', statusCode));
+    return next(
+      new CustomError('Došlo je do problema prilikom preuzimanja procesovanih porudžbina / statistike', statusCode)
+    );
   }
-}
+};
