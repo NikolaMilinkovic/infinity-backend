@@ -3,7 +3,6 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
-const multer = require('multer');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
@@ -54,13 +53,13 @@ mongoose
     initializeLastUpdatedTracker();
   })
   .catch((error) => {
-    console.error('MongoDB connection error', error);
+    betterErrorLog('> MongoDB connection error', error);
   });
 const database = mongoose.connection;
 if (database) {
   console.log('> Connected to Database');
 }
-database.on('error', console.error.bind(console, 'mongo connection error'));
+database.on('error', console.error.bind(console, '> MongoDB connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
 // Call seedPurses on server start, creates 1000 purse
@@ -137,6 +136,7 @@ app.use('/last-updated', lastUpdatedRouter);
 // =====================[ ERROR HANDLERS ]======================
 const errorHandler = require('./controllers/errorController');
 const { initializeAppSettings } = require('./schemas/appSchema');
+const { betterErrorLog } = require('./utils/logMethods');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================
 
