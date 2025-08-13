@@ -21,6 +21,7 @@ exports.addOrder = async (req, res, next) => {
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
     const totalPrice = parseFloat(req.body.totalPrice);
+    console.log(`> Logging total price: ${totalPrice}`);
     // Parse values back to bool
     const reservation = req.body.reservation === 'true';
     const packedIndicator = req.body.packed === 'true';
@@ -40,7 +41,6 @@ exports.addOrder = async (req, res, next) => {
       !Array.isArray(productData) || // Ensure productData is an array
       productData.length === 0 || // Check if productData is empty
       !productsPrice || // Check if productsPrice exists
-      !totalPrice || // Check if totalPrice exists
       typeof reservation !== 'boolean' || // Check if reservation is a boolean
       typeof packedIndicator !== 'boolean' || // Check if reservation is a boolean
       typeof packed !== 'boolean' || // Check if packed is a boolean
