@@ -1,15 +1,14 @@
-
 /**
  * NOTE
- * 
+ *
  * CustomError sends back data to logger, as we use it everywhere to handle errors
  * It is decided that it will be the point from which we are sending errors to logging service
- * 
+ *
  */
-
 
 require('dotenv').config();
 const CustomError = require('../utils/CustomError');
+const { Discord } = require('../utils/discord/infinityErrorBot');
 const { betterErrorLog } = require('../utils/logMethods');
 
 // Development environment errors
@@ -20,10 +19,9 @@ const devErrors = (res, err) => {
     status: err.statusCode,
     message: err.message,
     stackTrace: err.stack,
-    error: err
+    error: err,
   });
 };
-
 
 // Production environment errors
 const prodErrors = (res, err) => {
@@ -32,16 +30,15 @@ const prodErrors = (res, err) => {
   if (err.isOperational) {
     res.status(err.statusCode).json({
       status: err.statusCode,
-      message: err.message || 'Something went wrong! Please try again later'
+      message: err.message || 'Something went wrong! Please try again later',
     });
   } else {
     res.status(500).json({
       status: 'error',
-      message: 'Something went wrong! Please try again later'
+      message: 'Something went wrong! Please try again later',
     });
   }
 };
-
 
 // Reference for future error handling method
 const castErrorHandler = (err) => {
@@ -54,14 +51,14 @@ module.exports = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 
-  if(NODE_ENV === 'development'){
+  if (NODE_ENV === 'development') {
     devErrors(res, err);
-  } else if (NODE_ENV === 'production'){
-
+  } else if (NODE_ENV === 'production') {
     // As reference for future error handling
-    if(err.name === 'castError'){
+    if (err.name === 'castError') {
       err = castErrorHandler(err);
     }
     prodErrors(res, err);
   }
-}
+  Discord.logError(err, req);
+};

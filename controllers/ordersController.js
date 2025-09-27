@@ -14,6 +14,7 @@ const { normalizeReservationDate } = require('../utils/dateMethods');
 const { updateLastUpdatedField } = require('../utils/helperMethods');
 const Dress = require('../schemas/dress');
 const Purse = require('../schemas/purse');
+const { writeToLog } = require('../utils/s3/S3Methods');
 
 exports.addOrder = async (req, res, next) => {
   try {
@@ -21,7 +22,6 @@ exports.addOrder = async (req, res, next) => {
     const productData = JSON.parse(req.body.productData);
     const productsPrice = parseFloat(req.body.productsPrice);
     const totalPrice = parseFloat(req.body.totalPrice);
-    console.log(`> Logging total price: ${totalPrice}`);
     // Parse values back to bool
     const reservation = req.body.reservation === 'true';
     const packedIndicator = req.body.packed === 'true';
@@ -48,13 +48,13 @@ exports.addOrder = async (req, res, next) => {
       !courier || // Check if courier exists
       !req.file // Check if a file was uploaded
     ) {
-      return next(new CustomError('Nepotpuni podaci za dodavanje nove porudžbine', 404));
+      return next(new CustomError('Nepotpuni podaci za dodavanje nove porudžbine', 404, req));
     }
 
     // Extract profile image
     let profileImage;
     if (req.file) {
-      profileImage = await uploadMediaToS3(req.file, next);
+      profileImage = await uploadMediaToS3(req.file, 'clients/infinity_boutique/images/profiles', next);
     }
 
     productData.forEach((product) => {
@@ -173,11 +173,16 @@ exports.addOrder = async (req, res, next) => {
       io.emit('handlePurseStockDecrease', purseUpdateData);
       io.emit('allProductStockDecrease', purseUpdateData);
     }
+
+    await writeToLog(
+      req,
+      `Added a new order [${newOrder._id}] for buyer [${newOrder.buyer.name}] with total price of [${newOrder.totalPrice}].`
+    );
     return res.status(200).json({ message: 'Porudžbina uspešno dodata' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding an order:', error);
-    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));
+    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode, req, req.body));
   }
 };
 
@@ -188,7 +193,7 @@ exports.getProcessedOrders = async (req, res, next) => {
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching processed orders:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode, req));
   }
 };
 
@@ -199,7 +204,7 @@ exports.getUnprocessedOrders = async (req, res, next) => {
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching unprocessed orders:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode));
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja porudžbina', statusCode, req));
   }
 };
 
@@ -210,7 +215,7 @@ exports.getUnpackedOrders = async (req, res, next) => {
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching unpacked orders:', error);
-    return next(new CustomError('Došlo je do problema prilikom preuzimanja nespakovanih porudžbina', statusCode));
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja nespakovanih porudžbina', statusCode, req));
   }
 };
 
@@ -218,14 +223,18 @@ exports.parseOrder = async (req, res, next) => {
   try {
     const { orderData } = req.body;
     if (!orderData) {
-      return next(new CustomError(`Došlo je do problema prilikom parsiranja podataka o kupcu.`, 400));
+      return next(new CustomError(`Došlo je do problema prilikom parsiranja podataka o kupcu.`, 400, req));
     }
 
     const response = await JSON.parse(await parseOrderData(orderData));
     res.status(200).json({ message: `Podaci su uspešno parsirani`, data: response });
+
+    await writeToLog(req, `[ORDERS] Parsed buyer data. data: \n ${orderData}`);
   } catch (error) {
     betterErrorLog('> Error parsing order data via AI:', error);
-    return next(new CustomError('There was an error while parsing order data via AI', 500));
+    return next(
+      new CustomError('There was an error while parsing order data via AI', 500, req, { orderData: req.body.orderData })
+    );
   }
 };
 
@@ -244,10 +253,16 @@ exports.removeOrdersBatch = async (req, res, next) => {
     // Generic field update to trigger fetch of updated data
     await updateLastUpdatedField('dressLastUpdatedAt', io);
     res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
+
+    await writeToLog(req, `[ORDERS] Removed a batch of orders (${orderIds.length}): \n ${orderIds}`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error during batch order delete:', error);
-    return next(new CustomError('Došlo je do problema prilikom brisanja porudžbina', statusCode));
+    return next(
+      new CustomError('Došlo je do problema prilikom brisanja porudžbina', statusCode, req, {
+        orderIds: req.body.orderIds,
+      })
+    );
   }
 };
 
@@ -257,7 +272,7 @@ exports.getOrdersByDate = async (req, res, next) => {
     const selectedDate = new Date(dateParam);
 
     if (isNaN(selectedDate.getTime())) {
-      return next(new CustomError('Nevažeći format datuma', 400));
+      return next(new CustomError('Nevažeći format datuma', 400, req));
     }
 
     const startOfDay = new Date(selectedDate);
@@ -278,12 +293,13 @@ exports.getOrdersByDate = async (req, res, next) => {
       year: 'numeric',
     });
 
+    await writeToLog(req, `[ORDERS] Fetched orders for date [${selectedDate}]`);
     return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while fetching order for date ${formattedDate}`, error);
     return next(
-      new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode)
+      new CustomError(`Došlo je do problema prilikom preuzimanja porudžbina za datum ${formattedDate}`, statusCode, req)
     );
   }
 };
@@ -296,7 +312,7 @@ exports.getOrdersForPeriodFromDate = async (req, res, next) => {
     const selectedDate = new Date(dateParam);
 
     if (isNaN(selectedDate.getTime())) {
-      return next(new CustomError('Nevažeći format datuma', 400));
+      return next(new CustomError('Nevažeći format datuma', 400, req));
     }
 
     const startOfDay = new Date(selectedDate);
@@ -318,6 +334,7 @@ exports.getOrdersForPeriodFromDate = async (req, res, next) => {
 
     betterConsoleLog('> Found orders: ', orders);
 
+    await writeToLog(req, `[ORDERS] Fetched orders for period from [${selectedDate}]`);
     return res
       .status(200)
       .json({ message: `Porudžbine uspešno pronađene za period od ${formattedDate} pa do sada`, orders: orders });
@@ -347,7 +364,7 @@ exports.getReservationsByDate = async (req, res, next) => {
     const selectedDate = new Date(dateParam);
 
     if (isNaN(selectedDate.getTime())) {
-      return next(new CustomError('Nevažeći format datuma', 400));
+      return next(new CustomError('Nevažeći format datuma', 400, req));
     }
 
     const queryDate = new Date(selectedDate);
@@ -365,6 +382,7 @@ exports.getReservationsByDate = async (req, res, next) => {
       year: 'numeric',
     });
 
+    await writeToLog(req, `[ORDERS] Fetched rreservations for date [${queryDate}]`);
     return res
       .status(200)
       .json({ message: `Rezervacije uspešno pronađene za datum ${formattedDate}`, reservations: reservations });
@@ -372,7 +390,11 @@ exports.getReservationsByDate = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while fetching reservations for date ${formattedDate}`, error);
     return next(
-      new CustomError(`Došlo je do problema prilikom preuzimanja rezervacija za datum ${formattedDate}`, statusCode)
+      new CustomError(
+        `Došlo je do problema prilikom preuzimanja rezervacija za datum ${formattedDate}`,
+        statusCode,
+        req
+      )
     );
   }
 };
@@ -486,8 +508,8 @@ exports.updateOrder = async (req, res, next) => {
     order.deliveryRemark = compareAndUpdate(order.deliveryRemark, deliveryRemark);
 
     if (profileImage && profileImage.originalname !== order.buyer.profileImage.imageName) {
-      await deleteMediaFromS3(order.buyer.profileImage.imageName);
-      const image = await uploadMediaToS3(profileImage, next);
+      await deleteMediaFromS3(order.buyer.profileImage.imageName, 'clients/infinity_boutique/images/profiles');
+      const image = await uploadMediaToS3(profileImage, 'clients/infinity_boutique/images/profiles', next);
       order.buyer.profileImage = image;
     }
 
@@ -496,10 +518,11 @@ exports.updateOrder = async (req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Porudžbina uspešno ažurirana' });
+    await writeToLog(req, `[ORDERS] Updated an order [${order._id}] for buyer [${order.buyer.name}]`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating an order', error);
-    return next(new CustomError('Došlo je do problema prilikom ažuriranja porudžbine', statusCode));
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja porudžbine', statusCode, req));
   }
 };
 
@@ -546,10 +569,13 @@ exports.setIndicatorToTrue = async (req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Success' });
+    await writeToLog(req, `[ORDERS] Set indicator for order [${id}] to TRUE.`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating package indicator to true', error);
-    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
+    return next(
+      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req)
+    );
   }
 };
 
@@ -562,10 +588,13 @@ exports.setIndicatorToFalse = async (req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     res.status(200).json({ message: 'Success' });
+    await writeToLog(req, `[ORDERS] Set indicator for order [${id}] to FALSE.`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating package indicator to false', error);
-    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
+    return next(
+      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req)
+    );
   }
 };
 
@@ -583,14 +612,19 @@ exports.packOrdersByIds = async (req, res, next) => {
     io.emit('packOrdersByIds', packedIds);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
+    await writeToLog(req, `[ORDERS] Packed orders:\n${packedIds}`);
     return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog("> Error while packing orders by ID's", error);
-    return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode));
+    return next(
+      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req)
+    );
   }
 };
 
+// Note - createdAt se menja na serveru pa zatim zasebno na frontu, znaci da ce biti desync prilikom prebacivanja iz reservation to order
+// Doneta odluka zato sto je ovo najlaksi i najbrzi nacin, na frontu samo setamo new Date() umesto da menjamo ceo order item ili radimo update
 exports.batchReservationsToCourier = async (req, res, next) => {
   try {
     const { courier, reservations } = req.body;
@@ -605,6 +639,7 @@ exports.batchReservationsToCourier = async (req, res, next) => {
                 name: courier.name,
                 deliveryPrice: courier.deliveryPrice,
               },
+              createdAt: new Date(),
             },
           },
           {
@@ -627,11 +662,16 @@ exports.batchReservationsToCourier = async (req, res, next) => {
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
     const result = await Orders.bulkWrite(operations);
-    res.status(200).json({ mesasge: 'Rezervacije uspešno prebačene u porudžbine' });
+    res.status(200).json({ message: 'Rezervacije uspešno prebačene u porudžbine' });
+
+    await writeToLog(
+      req,
+      `[ORDERS] Moved ${reservations.length} reservations to active orders for courier [${courier.name}].`
+    );
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while transfering batch reservations courier ${courier.name}`, error);
-    return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode));
+    return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode, req));
   }
 };
 
@@ -643,6 +683,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
       const buffer = Buffer.from(fileData, 'base64');
       uploadedFile = await uploadFileToS3(
         { buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+        '',
         next
       );
       // uri & fileName
@@ -685,12 +726,13 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     io.emit('getProcessedOrdersStatistics', newProcessedOrder);
     io.emit('addNewStatisticFile', newProcessedOrder);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
+    await writeToLog(req, `[ORDERS] Parsed | Processed orders | Finished the day for courier [${courier.name}].`);
     return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error parsing orders during excell file generation', error);
     return next(
-      new CustomError('Došlo je do problema prilikom parsiranja porudžbina i generisanja exell-a', statusCode)
+      new CustomError('Došlo je do problema prilikom parsiranja porudžbina i generisanja exell-a', statusCode, req)
     );
   }
 };
@@ -907,7 +949,7 @@ exports.getOrderStatisticFilesForPeriod = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching processed orders for period:', error);
     return next(
-      new CustomError('Došlo je do problema prilikom preuzimanja procesovanih porudžbina / statistike', statusCode)
+      new CustomError('Došlo je do problema prilikom preuzimanja procesovanih porudžbina / statistike', statusCode, req)
     );
   }
 };

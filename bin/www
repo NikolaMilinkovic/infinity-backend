@@ -4,11 +4,13 @@
  * Module dependencies.
  */
 
+const { writeToLog } = require('../utils/s3/S3Methods');
 const app = require('../app');
 const debug = require('debug')('infinity-backend:server');
 const http = require('http');
 const { validateLastUpdated, getLastUpdated, getUpdatedMismatchedData } = require('../utils/helperMethods');
-
+const User = require('../schemas/user');
+const jwt = require('jsonwebtoken');
 
 /**
  * Get port from environment and store in Express.
@@ -23,12 +25,35 @@ app.set('port', port);
  */
 
 const server = http.createServer(app);
-const io = require("socket.io")(server);
-const logtail = require("../utils/logger");
+const io = require('socket.io')(server);
+const logtail = require('../utils/logger');
 app.locals.io = io;
-io.on('connection', (socket) => {
-  console.log(`> User connected: ${socket.id}`);
+io.on('connection', async (socket) => {
   socket.emit('requestLastUpdated', { message: 'Send lastUpdated data' });
+
+  // GET USER FROM TOKEN IN ORDER TO LOG IT
+  try {
+    const rawToken = socket.handshake.auth?.token;
+    if (!rawToken) {
+      console.log(`> Anonymous user connected: ${socket.id}`);
+      return;
+    }
+
+    // remove "Bearer " if present
+    const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (user) {
+      console.log(`> User connected with socket id [${socket.id}]: [${user.username}] [${user._id}]`);
+      writeToLog({}, `[SOCKET] Connected to the server.`, token);
+    } else {
+      console.log(`> Invalid token user tried to connect: ${socket.id}`);
+    }
+  } catch (err) {
+    console.log(`> Socket auth error: ${err.message}`);
+  }
 
   // LAST UPDATED CHECK
   socket.on('lastUpdated', (lastUpdatedData) => {
@@ -36,9 +61,24 @@ io.on('connection', (socket) => {
     handleLastUpdatedValidation(lastUpdatedData, socket);
   });
 
-  // DISCONNECT 
-  socket.on('disconnect', (reason) => {
-    console.log(`> User disconnected: ${socket.id} - Reason: ${reason}`);
+  // DISCONNECT
+  socket.on('disconnect', async (reason) => {
+    console.log(`> User disconnected: [${socket.id}] - Reason: ${reason}`);
+
+    try {
+      const rawToken = socket.handshake.auth?.token;
+      if (!rawToken) return;
+
+      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId);
+
+      if (user) {
+        await writeToLog({}, `[SOCKET] Disconnected from server. Reason: [${reason}]`, token);
+      }
+    } catch (err) {
+      console.log(`> Failed to log disconnect: ${err.message}`);
+    }
   });
 
   // RECONNECT
@@ -53,31 +93,29 @@ io.on('connection', (socket) => {
   });
 });
 
-
 // Handles sending the missing data to the client
-async function handleLastUpdatedValidation(data, socket){
+async function handleLastUpdatedValidation(data, socket) {
   const validationResult = await validateLastUpdated(data);
   const lastUpdated = await getLastUpdated();
   let updatedData;
   let responseData;
 
-  if(validationResult.isEqual === false){
-    updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys); 
+  if (validationResult.isEqual === false) {
+    updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys);
     responseData = {
       isSynced: false,
       lastUpdated,
       updatedData,
-      message: 'Ažuriranje podataka u toku'
-    }
-
+      message: 'Ažuriranje podataka u toku',
+    };
   } else {
     updatedData = [];
     responseData = {
       isSynced: true,
       message: 'Svi podaci su ažurirani',
-    }
+    };
   }
-    
+
   socket.emit('lastUpdatedResponse', responseData);
 }
 
@@ -118,9 +156,7 @@ function onError(error) {
     throw error;
   }
 
-  const bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+  const bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
@@ -143,8 +179,6 @@ function onError(error) {
 
 function onListening() {
   const addr = server.address();
-  const bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
+  const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
   debug('Listening on ' + bind);
 }

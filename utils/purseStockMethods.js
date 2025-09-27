@@ -5,33 +5,35 @@ const mongoose = require('mongoose');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
 const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
 
-
-async function purseColorStockHandler(colorId, operation, value = 1, next){
-  try{
+async function purseColorStockHandler(colorId, operation, value = 1, next) {
+  try {
     const purseColor = await PurseColor.findById(colorId);
-    if(!purseColor){
-      return next(new CustomError(`Purse Color objekat nije pronadjen za id ${colorId}`)); 
+    if (!purseColor) {
+      return next(new CustomError(`Purse Color objekat nije pronadjen za id ${colorId}`));
     }
-  
+
     // Decrement / Increment based on provided operation
-    if(operation === 'decrement'){
-      if(purseColor.stock > 0){
+    if (operation === 'decrement') {
+      if (purseColor.stock > 0) {
         purseColor.stock -= value;
       } else {
         return next(new CustomError(`Nedovoljno zaliha na stanju [${purseColor.stock}]`));
       }
-    } else if (operation === 'increment'){
+    } else if (operation === 'increment') {
       purseColor.stock += value;
     } else {
-      return next(new CustomError(`Pogrešan unos za operaciju u purseColorStockHandler [increment | decrement] vaš unos: ${operation}`));
+      return next(
+        new CustomError(
+          `Pogrešan unos za operaciju u purseColorStockHandler [increment | decrement] vaš unos: ${operation}`
+        )
+      );
     }
-  
-    return await purseColor.save();
 
+    return await purseColor.save();
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding an order:', error);
-    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode)); 
+    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));
   }
 }
 
@@ -41,8 +43,8 @@ async function purseColorStockHandler(colorId, operation, value = 1, next){
  * - orderId: string
  * - colorId: string
  * - increment: number
- * @param {String} operation - can either be increment | decrement 
- * @param {Function} next - callback function for error handling 
+ * @param {String} operation - can either be increment | decrement
+ * @param {Function} next - callback function for error handling
  * @returns {Promise} - A promise resolving to the updated stock levels or an error.
  */
 async function purseBatchColorStockHandler(pursesArr, operation, next) {
@@ -50,8 +52,8 @@ async function purseBatchColorStockHandler(pursesArr, operation, next) {
     const operations = pursesArr.map((item) => ({
       updateOne: {
         filter: { _id: new mongoose.Types.ObjectId(`${item.colorId}`) },
-        update: { $inc: { stock: operation === 'increment' ? item.increment : -item.increment } }
-      }
+        update: { $inc: { stock: operation === 'increment' ? item.increment : -item.increment } },
+      },
     }));
 
     return await PurseColor.collection.bulkWrite(operations);
@@ -68,7 +70,7 @@ async function updatePurseActiveStatus(purseId) {
   if (!purse) {
     throw new Error('Purse not found for id ' + purseId);
   }
-  const hasStock = purse.colors.some(color => color.stock > 0);
+  const hasStock = purse.colors.some((color) => color.stock > 0);
 
   // Update the active flag if no stock is available
   if (!hasStock) {
@@ -81,44 +83,45 @@ async function updatePurseActiveStatus(purseId) {
   return purse;
 }
 
-async function removePurseById(purseId, req){
+async function removePurseById(purseId, req) {
   const purse = await Purse.findById(purseId).populate('colors');
   if (!purse) {
     throw new Error('Purse not found for id ' + purseId);
   }
 
-      // Delete all DressColors objects from DB
-      for (const colorId of purse.colors) {
-        await PurseColor.findByIdAndDelete(colorId);
-      }
-  
-      // Delete image from s3 bucket
-      // await deleteMediaFromS3(purse.image.imageName);
+  // Delete all DressColors objects from DB
+  for (const colorId of purse.colors) {
+    await PurseColor.findByIdAndDelete(colorId);
+  }
 
-    // Delete the Purse object
-    const deletedPurse = await Purse.findByIdAndDelete(purseId);
-    if(!deletedPurse){
-      return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));
+  // Delete image from s3 bucket
+  // Ovo ne radimo zato sto ce svi orderi da izgube sliku proizvoda!!!
+  // await deleteMediaFromS3(purse.image.imageName);
+
+  // Delete the Purse object
+  const deletedPurse = await Purse.findByIdAndDelete(purseId);
+  if (!deletedPurse) {
+    return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));
+  }
+
+  // SOCKET HANDLING
+  const io = req.app.locals.io;
+  if (io) {
+    if (purse.active) {
+      io.emit('activePurseRemoved', deletedPurse._id);
+      io.emit('activeProductRemoved', deletedPurse._id);
+    } else {
+      io.emit('inactivePurseRemoved', deletedPurse._id);
+      io.emit('inactiveProductRemoved', deletedPurse._id);
     }
+  }
 
-    // SOCKET HANDLING
-    const io = req.app.locals.io;
-    if (io) {
-      if (purse.active) {
-        io.emit('activePurseRemoved', deletedPurse._id);
-        io.emit('activeProductRemoved', deletedPurse._id);
-      } else {
-        io.emit('inactivePurseRemoved', deletedPurse._id);
-        io.emit('inactiveProductRemoved', deletedPurse._id);
-      }
-    }
-
-    return true;
+  return true;
 }
 
 module.exports = {
   purseColorStockHandler,
   purseBatchColorStockHandler,
   updatePurseActiveStatus,
-  removePurseById
+  removePurseById,
 };

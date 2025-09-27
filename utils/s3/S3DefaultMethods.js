@@ -20,27 +20,33 @@ function getCurrentDate() {
   return new Date().toLocaleDateString('en-UK').replace(/\//g, '-');
 }
 
-async function uploadMediaToS3(file, next) {
+async function uploadMediaToS3(file, folderPath = '', next, withResize = true, x = 480, y = 640) {
   try {
-    const modifiedImageBuffer = await resizeImage(file.buffer, 480, 640);
+    let imageBuffer = file.buffer;
+    if (withResize) {
+      imageBuffer = await resizeImage(file.buffer, x, y);
+    }
     const imageName = `${randomImageName()}.jpeg`;
+
+    // Build the S3 key: either with folderPath or root
+    const key = folderPath ? `${folderPath.replace(/\/$/, '')}/${imageName}` : imageName;
+
     const params = {
       Bucket: bucket_name,
-      Key: imageName,
-      Body: modifiedImageBuffer,
+      Key: key,
+      Body: imageBuffer,
       ACL: 'public-read',
       ContentType: file.mimeType,
     };
+
     const command = new PutObjectCommand(params);
     const s3_response = await s3.send(command);
 
-    // Construct and return the link for the image
     if (s3_response.$metadata.httpStatusCode === 200) {
-      const response = {
-        uri: `https://${bucket_name}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${imageName}`,
+      return {
+        uri: `https://${bucket_name}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${key}`,
         imageName: imageName,
       };
-      return response;
     } else {
       return next(
         new CustomError('Došlo je do problema prilikom uploadovanja slike', s3_response.$metadata.httpStatusCode)
@@ -53,14 +59,19 @@ async function uploadMediaToS3(file, next) {
   }
 }
 
-async function deleteMediaFromS3(imageName) {
+async function deleteMediaFromS3(imageName, path = '') {
   try {
+    // If path is provided, prepend it to the filename
+    const key = path ? `${path.replace(/\/$/, '')}/${imageName}` : imageName;
+
     const params = {
       Bucket: bucket_name,
-      Key: imageName,
+      Key: key,
     };
+
     const command = new DeleteObjectCommand(params);
     const result = await s3.send(command);
+
     if (result.$metadata.httpStatusCode !== 204) {
       betterConsoleLog('> Error while deleting the image from the S3 bucket', result);
     }
@@ -71,22 +82,26 @@ async function deleteMediaFromS3(imageName) {
   }
 }
 
-async function uploadFileToS3(file, next) {
+async function uploadFileToS3(file, filePath = '', next) {
   try {
     const fileName = `orders-for-${getCurrentDate()}.xlsx`;
+    // Construct key with optional path
+    const key = filePath ? `${filePath.replace(/\/$/, '')}/${fileName}` : fileName;
+
     const params = {
       Bucket: bucket_name,
-      Key: fileName,
+      Key: key,
       Body: file.buffer,
       ACL: 'public-read',
       ContentType: file.mimeType,
     };
+
     const command = new PutObjectCommand(params);
     const s3_response = await s3.send(command);
 
     if (s3_response.$metadata.httpStatusCode === 200) {
       const response = {
-        uri: `https://${bucket_name}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${fileName}`,
+        uri: `https://${bucket_name}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${key}`,
         fileName: fileName,
       };
       return response;

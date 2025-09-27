@@ -68,6 +68,10 @@ database.on('error', console.error.bind(console, '> MongoDB connection error'));
 // await seedPurses(1000);
 // });
 
+// Create 100 fake orders on startup
+// const { createFakeOrders } = require('./utils/fakeOrdersSeeder');
+// createFakeOrders();
+
 // Example usage of adding new user on startup
 // const { addUserOnStartup } = require('./utils/helperMethods');
 // addUserOnStartup('Nikola', 'Nikola');
@@ -76,7 +80,11 @@ const {
   updateAllUsersWithNewFields,
   updateTotalDressStock,
   updateTotalPurseStock,
+  updateUserPermissions,
 } = require('./utils/updateAllOnStartup');
+
+// Adds permissions
+// updateUserPermissions();
 
 // updateTotalDressStock();
 // updateTotalPurseStock();
@@ -91,6 +99,14 @@ ensureLastUpdatedDocument();
 
 // const { getSumOfAllProducts } = require('./utils/helperMethods');
 // getSumOfAllProducts();
+
+// curl http://localhost:3000/test_discord_error_log
+// app.use('/test_discord_error_log', (req, res, next) => {
+//   const { Discord } = require('./utils/discord/infinityErrorBot');
+//   const fakeError = new Error('This is a test error from the app 🚧');
+//   Discord.logError(fakeError, req);
+//   return res.send('OK');
+// });
 
 // =====================[ NODE-CRON SCHEDULERS ]=====================
 const startAllSchedulers = require('./schedulers/scheduler');
@@ -139,5 +155,9 @@ const { initializeAppSettings } = require('./schemas/appSchema');
 const { betterErrorLog } = require('./utils/logMethods');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================
+
+// const { createMonthlyLogFolder, createUserLogFiles } = require('./utils/s3/S3Methods');
+// createMonthlyLogFolder();
+// createUserLogFiles('logs/2025-september(09)/');
 
 module.exports = app;

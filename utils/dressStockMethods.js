@@ -3,40 +3,43 @@ const DressColor = require('../schemas/dressColor');
 const mongoose = require('mongoose');
 const CustomError = require('./CustomError');
 const { betterErrorLog } = require('./logMethods');
+const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
 
-
-async function dressColorStockHandler(colorId, sizeId, operation, value = 1, next){
-  try{
+async function dressColorStockHandler(colorId, sizeId, operation, value = 1, next) {
+  try {
     const dressColor = await DressColor.findById(colorId);
-    if(!dressColor){
-      return next(new CustomError(`Dress Color objekat nije pronadjen za id ${colorId}`)); 
+    if (!dressColor) {
+      return next(new CustomError(`Dress Color objekat nije pronadjen za id ${colorId}`));
     }
-  
+
     // Find the correct size object
     const sizeToUpdate = dressColor.sizes.find((size) => size._id.toString() === sizeId);
-    if(!sizeToUpdate){
-      return next(new CustomError(`Sizer objekat nije pronadjen za id ${sizeId}`)); 
+    if (!sizeToUpdate) {
+      return next(new CustomError(`Sizer objekat nije pronadjen za id ${sizeId}`));
     }
-  
+
     // Decrement / Increment based on provided operation
-    if(operation === 'decrement'){
-      if(sizeToUpdate.stock > 0){
+    if (operation === 'decrement') {
+      if (sizeToUpdate.stock > 0) {
         sizeToUpdate.stock -= value;
       } else {
         return next(new CustomError(`Nedovoljno zaliha na stanju [${sizeToUpdate.stock}] za size id: ${sizeId}`));
       }
-    } else if (operation === 'increment'){
+    } else if (operation === 'increment') {
       sizeToUpdate.stock += value;
     } else {
-      return next(new CustomError(`Pogrešan unos za operaciju u dressColorStockHandler [increment | decrement] vaš unos: ${operation}`));
+      return next(
+        new CustomError(
+          `Pogrešan unos za operaciju u dressColorStockHandler [increment | decrement] vaš unos: ${operation}`
+        )
+      );
     }
-  
-    return await dressColor.save();
 
+    return await dressColor.save();
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding an order:', error);
-    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode)); 
+    return next(new CustomError('Došlo je do problema prilikom dodavanja porudžbine', statusCode));
   }
 }
 
@@ -47,20 +50,20 @@ async function dressColorStockHandler(colorId, sizeId, operation, value = 1, nex
  * - colorId: string
  * - sizeId: string
  * - increment: number
- * @param {String} operation - can either be increment | decrement 
- * @param {Function} next - callback function for error handling 
+ * @param {String} operation - can either be increment | decrement
+ * @param {Function} next - callback function for error handling
  * @returns {Promise} - A promise resolving to the updated stock levels or an error.
  */
 async function dressBatchColorStockHandler(dressesArr, operation, next) {
   try {
     const operations = dressesArr.map((item) => ({
       updateOne: {
-        filter: { 
+        filter: {
           _id: new mongoose.Types.ObjectId(`${item.colorId}`),
-          'sizes._id': new mongoose.Types.ObjectId(`${item.sizeId}`)
+          'sizes._id': new mongoose.Types.ObjectId(`${item.sizeId}`),
         },
-        update: { $inc: { 'sizes.$.stock': operation === 'increment' ? item.increment : -item.increment } }
-      }
+        update: { $inc: { 'sizes.$.stock': operation === 'increment' ? item.increment : -item.increment } },
+      },
     }));
 
     return await DressColor.collection.bulkWrite(operations);
@@ -77,7 +80,7 @@ async function updateDressActiveStatus(dressId) {
   if (!dress) {
     throw new Error('Dress not found for id ' + dressId);
   }
-  const hasStock = dress.colors.some(color => color.sizes.some(size => size.stock > 0));
+  const hasStock = dress.colors.some((color) => color.sizes.some((size) => size.stock > 0));
 
   // Update the active flag if no stock is available
   if (!hasStock) {
@@ -90,12 +93,12 @@ async function updateDressActiveStatus(dressId) {
   return dress;
 }
 
-async function removeDressById(dressId, req, next){
-  try{
+async function removeDressById(dressId, req, next) {
+  try {
     const dress = await Dress.findById(dressId).populate('colors');
-  if (!dress) {
-    throw new Error('Dress not found for id ' + dressId);
-  }
+    if (!dress) {
+      throw new Error('Dress not found for id ' + dressId);
+    }
 
     // Delete all DressColors objects from DB
     for (const colorId of dress.colors) {
@@ -103,11 +106,12 @@ async function removeDressById(dressId, req, next){
     }
 
     // Delete image from s3 bucket
-    // await deleteMediaFromS3(dress.image.imageName);
+    // Ovo ne radimo zato sto ce svi orderi da izgube sliku proizvoda!!!
+    // await deleteMediaFromS3(dress.image.imageName, 'clients/infinity_boutique/images/products');
 
     // Delete the Dress object
     const deletedDress = await Dress.findByIdAndDelete(dressId);
-    if(!deletedDress){
+    if (!deletedDress) {
       return next(new CustomError(`Proizvod sa ID: ${dressId} nije pronađen`, 404));
     }
 
@@ -124,7 +128,7 @@ async function removeDressById(dressId, req, next){
     }
 
     return true;
-  } catch(error){
+  } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error removing a dress via ID:', error);
     return next(new CustomError('Došlo je do problema prilikom brisanja haljine putem ID-a', statusCode));
@@ -135,5 +139,5 @@ module.exports = {
   dressColorStockHandler,
   dressBatchColorStockHandler,
   updateDressActiveStatus,
-  removeDressById
+  removeDressById,
 };

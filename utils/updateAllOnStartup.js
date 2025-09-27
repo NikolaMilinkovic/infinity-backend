@@ -146,9 +146,91 @@ async function updateTotalPurseStock() {
   }
 }
 
+// Default permissions object based on your schema
+const defaultPermissions = {
+  navigation: {
+    lista_artikla: true,
+    porudzbine_rezervacije: true,
+    boje_kategorije_dobavljaci: true,
+    kuriri: true,
+    dodaj_artikal: true,
+    upravljanje_korisnicima: true,
+    podesavanja: true,
+    zavrsi_dan: true,
+    admin_dashboard: false,
+  },
+  products: {
+    create: true,
+    update: true,
+    delete: true,
+  },
+  orders: {
+    create: true,
+    update: true,
+    delete: true,
+  },
+  packaging: {
+    check: true,
+    finish_packaging: true,
+  },
+  colors: {
+    create: true,
+    update: true,
+    delete: true,
+  },
+  categories: {
+    create: true,
+    update: true,
+    delete: true,
+  },
+  suppliers: {
+    create: true,
+    update: true,
+    delete: true,
+  },
+  couriers: {
+    create: true,
+    update: true,
+    delete: true,
+  },
+};
+
+// Recursive function to merge defaults without overwriting existing values
+function mergeDefaults(target, defaults) {
+  for (const key of Object.keys(defaults)) {
+    if (target[key] === undefined || target[key] === null) {
+      target[key] = defaults[key];
+    } else if (typeof defaults[key] === 'object' && !Array.isArray(defaults[key])) {
+      if (typeof target[key] !== 'object' || Array.isArray(target[key])) {
+        target[key] = {};
+      }
+      mergeDefaults(target[key], defaults[key]);
+    }
+  }
+}
+
+async function updateUserPermissions() {
+  try {
+    const users = await Users.find({});
+    console.log(`Found ${users.length} users`);
+
+    for (const user of users) {
+      if (!user.permissions) user.permissions = {};
+      mergeDefaults(user.permissions, defaultPermissions);
+      await user.save();
+      console.log(`Updated permissions for user: ${user.username}`);
+    }
+
+    console.log('✅ All permissions updated successfully');
+  } catch (err) {
+    console.error('Error updating permissions:', err);
+  }
+}
+
 module.exports = {
   updateProductsWithNewFields,
   updateAllUsersWithNewFields,
   updateTotalDressStock,
   updateTotalPurseStock,
+  updateUserPermissions,
 };

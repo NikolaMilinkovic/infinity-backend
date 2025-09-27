@@ -1,42 +1,57 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const appSchema = new Schema({
-  settings: {
-    defaults: {
-      courier: {
-        type: String,
-        required: false,
-        default: 'Bex'
+const appSchema = new Schema(
+  {
+    settings: {
+      appIcon: {
+        appIconUri: {
+          type: String,
+          required: false,
+          default: '',
+        },
+        appIconName: {
+          type: String,
+          required: false,
+          default: '',
+        },
       },
-      listProductsBy: {
-        type: String,
-        required: false,
-        default: 'category'
-      }
-    }
+      defaults: {
+        courier: {
+          type: String,
+          required: false,
+          default: '',
+        },
+        listProductsBy: {
+          type: String,
+          required: false,
+          default: 'category',
+        },
+      },
+    },
+    version: {
+      type: String,
+      required: false,
+      unique: false,
+      default: '1.0.0',
+    },
+    buildLink: {
+      type: String,
+      required: false,
+      default: '',
+    },
   },
-  version: {
-    type: String,
-    required: false,
-    unique: false,
-    default: '1.0.0',
-  },
-  buildLink: {
-    type: String,
-    required: false,
-    default: '',
-  }
-}, { timestamps: true }); 
+  { timestamps: true }
+);
 
 module.exports = mongoose.model('AppSchema', appSchema);
 
 const AppSettings = mongoose.model('AppSettings', appSchema);
-async function initializeAppSettings(){
-  try{
+async function initializeAppSettings() {
+  try {
     const existingSettings = await AppSettings.findOne({});
 
-    if(!existingSettings) {
+    if (!existingSettings) {
       await AppSettings.create({});
     }
   } catch (error) {
@@ -46,5 +61,5 @@ async function initializeAppSettings(){
 
 module.exports = {
   AppSettings,
-  initializeAppSettings
+  initializeAppSettings,
 };

@@ -11,7 +11,7 @@ exports.getLastUpdatedData = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error fetching last updated data', error);
     return next(
-      new CustomError('Došlo je do problema prilikom preuzimanja podataka o vremenima ažuriranja', statusCode)
+      new CustomError('Došlo je do problema prilikom preuzimanja podataka o vremenima ažuriranja', statusCode, req)
     );
   }
 };

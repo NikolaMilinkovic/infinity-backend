@@ -57,6 +57,7 @@ const OrderSchema = new Schema(
   { timestamps: true }
 );
 
+OrderSchema.path('createdAt').immutable(false);
 OrderSchema.index({ reservation: 1 });
 OrderSchema.index({ processed: 1 });
 OrderSchema.index({ packed: 1 });
