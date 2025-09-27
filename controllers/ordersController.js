@@ -415,6 +415,7 @@ exports.updateOrder = async (req, res, next) => {
       bankNumber, // string
       place, // string
       orderNotes,
+      deliveryNotes,
     } = req.body;
 
     const profileImage = req.file;
@@ -428,7 +429,7 @@ exports.updateOrder = async (req, res, next) => {
     const weight = req.body?.weight || 0.5;
     const value = req.body?.value || '';
     const internalRemark = req.body?.internalRemark || '';
-    const deliveryRemark = req.body?.deliveryRemark || '';
+    const deliveryRemark = req.body?.deliveryNotes || '';
 
     let reservationDate;
     if (req.body?.reservationDate !== undefined) {
@@ -642,13 +643,15 @@ exports.batchReservationsToCourier = async (req, res, next) => {
               createdAt: new Date(),
             },
           },
-          {
-            $set: {
-              totalPrice: {
-                $add: ['$productsPrice', courier.deliveryPrice],
-              },
-            },
-          },
+          // Izbacili smo recalculate price iz razloga
+          // Ukoliko postavimo nas custom price, npr. 0, onda ce da je pregazi sto je jako lose!!
+          // {
+          //   $set: {
+          //     totalPrice: {
+          //       $add: ['$productsPrice', courier.deliveryPrice],
+          //     },
+          //   },
+          // },
         ],
       },
     }));
