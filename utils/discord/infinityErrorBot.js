@@ -14,8 +14,8 @@ class Discord_log {
   async logError(error, req = null, passedData = null) {
     try {
       const stack = error.stack || error.message || String(error);
-      const safeMessage = this.truncate(error.message || 'Unknown error', 2048);
-      const safeStack = this.truncate(stack, 1000);
+      const safeMessage = this.truncate(error.message || 'Unknown error', 1024);
+      const safeStack = stack ? this.truncate(stack, 2048) : 'No stack available';
 
       const extra = req
         ? {

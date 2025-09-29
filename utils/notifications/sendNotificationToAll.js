@@ -8,22 +8,44 @@ const expo = new Expo();
  * @param {string} body
  * @param {object} data
  */
+// async function sendNotificationToAll(title, body, data) {
+//   // Get all tokens
+//   const tokens = await User.find({}, 'pushToken').lean();
+//   const pushTokens = tokens.map((user) => user.pushToken).filter((pushToken) => pushToken !== '');
+//   const messages = pushTokens.map((token) => ({
+//     to: token,
+//     sound: 'default',
+//     title: title,
+//     body: body,
+//     data: data,
+//   }));
+
+//   try {
+//     await expo.sendPushNotificationsAsync(messages);
+//   } catch (error) {
+//     console.error('❌ Error sending notifications:', error);
+//   }
+// }
+
 async function sendNotificationToAll(title, body, data) {
-  // Get all tokens
   const tokens = await User.find({}, 'pushToken').lean();
-  const pushTokens = tokens.map((user) => user.pushToken).filter((pushToken) => pushToken !== '');
+  const pushTokens = tokens.map((u) => u.pushToken).filter((t) => t);
   const messages = pushTokens.map((token) => ({
     to: token,
     sound: 'default',
-    title: title,
-    body: body,
-    data: data,
+    title,
+    body,
+    data,
   }));
 
-  try {
-    await expo.sendPushNotificationsAsync(messages);
-  } catch (error) {
-    console.error('❌ Error sending notifications:', error);
+  let chunks = expo.chunkPushNotifications(messages);
+  for (let chunk of chunks) {
+    try {
+      const receipts = await expo.sendPushNotificationsAsync(chunk);
+      console.log('Notifications sent:', receipts);
+    } catch (err) {
+      console.error('❌ Error sending notifications chunk:', err);
+    }
   }
 }
 

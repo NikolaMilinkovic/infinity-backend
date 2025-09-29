@@ -47,7 +47,7 @@ io.on('connection', async (socket) => {
 
     if (user) {
       console.log(`> User connected with socket id [${socket.id}]: [${user.username}] [${user._id}]`);
-      writeToLog({}, `[SOCKET] Connected to the server.`, token);
+      await writeToLog({}, `[SOCKET] Connected to the server.`, token);
     } else {
       console.log(`> Invalid token user tried to connect: ${socket.id}`);
     }

@@ -6,7 +6,6 @@ const {
   CopyObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const CustomError = require('../CustomError');
 const dotenv = require('dotenv').config();
 const s3 = require('./S3Client');
 const bucket_name = process.env.BUCKET_NAME;

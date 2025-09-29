@@ -33,6 +33,26 @@ const startReservationsCheck = () => {
   });
 };
 
+const startReservationsCheckTest = () => {
+  setTimeout(async () => {
+    try {
+      const date = getDayStartEndTimeForTimezone('Europe/Belgrade', 1);
+      const orders = await Order.find({
+        reservation: true,
+        reservationDate: {
+          $gte: date.startOfDay,
+          $lt: date.endOfDay,
+        },
+      });
+
+      sendNotificationToAll('🛍️ Rezervacije za danas! (TEST)', `Ukupno: ${orders.length}`);
+    } catch (error) {
+      betterErrorLog('> Error in startReservationsCheckTest:', error);
+    }
+  }, 10_000); // 10 seconds
+};
+
 module.exports = {
   startReservationsCheck,
+  startReservationsCheckTest,
 };

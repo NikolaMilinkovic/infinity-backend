@@ -3,7 +3,8 @@ const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
 const { decodeUserIdFromToken } = require('../utils/decodeUserIdFromToken');
 const User = require('../schemas/user');
 const bcrypt = require('bcryptjs');
-const { addLogFileForNewUser, renameUserLogFile, writeToLog } = require('../utils/s3/S3Methods');
+const { addLogFileForNewUser, renameUserLogFile } = require('../utils/s3/S3Methods');
+const { writeToLog } = require('../utils/s3/S3Methods');
 
 exports.getUserData = async (req, res, next) => {
   try {
@@ -153,6 +154,8 @@ exports.updateUserPushToken = async (req, res, next) => {
     user.pushToken = pushToken;
     await user.save();
     res.status(200).json({ message: 'Push token uspešno ažuriran' });
+
+    await writeToLog(req, `[USERS] User [${userId}] updated his expo push token to [${pushToken}].`);
   } catch (error) {
     betterErrorLog('> Error while updating user push token:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja podataka o push tokenu', 500, req));

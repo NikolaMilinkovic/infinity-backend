@@ -564,7 +564,10 @@ function getPurseIncrementData(item) {
 exports.setIndicatorToTrue = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await Orders.findByIdAndUpdate(id, { packedIndicator: true });
+    const response = await Orders.findByIdAndUpdate(id, { packedIndicator: true });
+    if (!response) {
+      throw new CustomError('Order not found', 404, req, { orderId: id });
+    }
     const io = req.app.locals.io;
     io.emit('setStockIndicatorToTrue', id);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
@@ -575,7 +578,9 @@ exports.setIndicatorToTrue = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating package indicator to true', error);
     return next(
-      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req)
+      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req, {
+        orderId: req.params.id,
+      })
     );
   }
 };
@@ -583,7 +588,10 @@ exports.setIndicatorToTrue = async (req, res, next) => {
 exports.setIndicatorToFalse = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await Orders.findByIdAndUpdate(id, { packedIndicator: false });
+    const response = await Orders.findByIdAndUpdate(id, { packedIndicator: false });
+    if (!response) {
+      throw new CustomError('Order not found', 404, req, { orderId: id });
+    }
     const io = req.app.locals.io;
     io.emit('setStockIndicatorToFalse', id);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
@@ -594,7 +602,9 @@ exports.setIndicatorToFalse = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating package indicator to false', error);
     return next(
-      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req)
+      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req, {
+        orderId: req.params.id,
+      })
     );
   }
 };
@@ -619,7 +629,9 @@ exports.packOrdersByIds = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog("> Error while packing orders by ID's", error);
     return next(
-      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req)
+      new CustomError('Došlo je do problema prilikom ažuriranja stanja pakovanja porudžbine', statusCode, req, {
+        packedIds: req.params.packedIds,
+      })
     );
   }
 };
@@ -674,7 +686,12 @@ exports.batchReservationsToCourier = async (req, res, next) => {
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while transfering batch reservations courier ${courier.name}`, error);
-    return next(new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode, req));
+    return next(
+      new CustomError('Došlo je do problema prilikom prebacivanja rezervacija', statusCode, req, {
+        courier: req.params.courier,
+        reservations: req.params.reservations,
+      })
+    );
   }
 };
 

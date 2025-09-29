@@ -156,8 +156,4 @@ const { betterErrorLog } = require('./utils/logMethods');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================
 
-// const { createMonthlyLogFolder, createUserLogFiles } = require('./utils/s3/S3Methods');
-// createMonthlyLogFolder();
-// createUserLogFiles('logs/2025-september(09)/');
-
 module.exports = app;

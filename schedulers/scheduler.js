@@ -1,4 +1,4 @@
-const { startReservationsCheck } = require('./notifications/reservationsScheduler');
+const { startReservationsCheck, startReservationsCheckTest } = require('./notifications/reservationsScheduler');
 
 /**
  * Here we call and start all schedulers
@@ -6,6 +6,7 @@ const { startReservationsCheck } = require('./notifications/reservationsSchedule
 const startAllSchedulers = () => {
   console.log('> Starting all schedulers');
   startReservationsCheck();
+  startReservationsCheckTest();
 };
 
 module.exports = startAllSchedulers;

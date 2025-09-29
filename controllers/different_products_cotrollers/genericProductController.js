@@ -50,6 +50,7 @@ exports.updateProduct = async (req, res, next) => {
     const io = req.app.locals.io;
 
     let product;
+    let oldProduct;
     let colorsArray = Array.isArray(colors) ? colors : JSON.parse(colors);
 
     // return betterConsoleLog('> colorsArray', colorsArray);
@@ -59,10 +60,12 @@ exports.updateProduct = async (req, res, next) => {
 
     // FETCH THE PRODUCT
     if (previousStockType === 'Boja-Veličina-Količina') {
-      product = await Dress.findById(id);
+      product = await Dress.findById(id).populate('colors');
+      oldProduct = JSON.parse(JSON.stringify(product)); // ✅ Deep copy
     }
     if (previousStockType === 'Boja-Količina') {
-      product = await Purse.findById(id);
+      product = await Purse.findById(id).populate('colors');
+      oldProduct = JSON.parse(JSON.stringify(product)); // ✅ Deep copy
     }
     if (newImageData) {
       // If an image is uploaded, handle it
@@ -170,7 +173,6 @@ exports.updateProduct = async (req, res, next) => {
         }
       }
 
-      await writeToLog(req, `[PRODUCTS] Updated a product [${product._id}] [${product.name}].`);
       return res.status(200).json({ message: 'Proizvod je uspešno ažuriran' });
     } else {
       // Same stock type, just update the fields and create new DressColor objects
@@ -199,6 +201,14 @@ exports.updateProduct = async (req, res, next) => {
             io.emit('inactiveProductUpdated', fetchedUpdatedProduct);
           }
         }
+        await writeToLog(
+          req,
+          `[PRODUCTS] Updated a product [${product._id}] [${product.name}].\n\n[OLD] ${JSON.stringify(
+            oldProduct,
+            null,
+            2
+          )}\n\n[UPDATED] ${JSON.stringify(fetchedUpdatedProduct, null, 2)}`
+        );
       }
 
       if (product.stockType === 'Boja-Količina') {
@@ -228,9 +238,16 @@ exports.updateProduct = async (req, res, next) => {
             io.emit('inactiveProductUpdated', fetchedUpdatedProduct);
           }
         }
+        await writeToLog(
+          req,
+          `[PRODUCTS] Updated a product [${product._id}] [${product.name}].\n\n[OLD] ${JSON.stringify(
+            oldProduct,
+            null,
+            2
+          )}\n\n[UPDATED] ${JSON.stringify(fetchedUpdatedProduct, null, 2)}`
+        );
       }
 
-      await writeToLog(req, `[PRODUCTS] Updated a product [${product._id}] [${product.name}].`);
       return res.status(200).json({ message: 'Proizvod je uspešno ažuriran' });
     }
   } catch (error) {
