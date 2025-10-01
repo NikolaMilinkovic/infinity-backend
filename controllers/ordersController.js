@@ -332,8 +332,6 @@ exports.getOrdersForPeriodFromDate = async (req, res, next) => {
       year: 'numeric',
     });
 
-    betterConsoleLog('> Found orders: ', orders);
-
     await writeToLog(req, `[ORDERS] Fetched orders for period from [${selectedDate}]`);
     return res
       .status(200)
@@ -710,7 +708,6 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     }
     // Get all orders that are active, not a reservation, and for specific courier
     const orders = await Orders.find({ processed: false, reservation: false, 'courier.name': courier });
-    betterConsoleLog('> Logging orders', orders);
     const totalSalesValue = getTotalSalesValue(orders);
     const averageOrderValue = getAverageOrderValue(totalSalesValue, orders.length);
     const salesPerStockType = getSalesPerStockType(orders);
