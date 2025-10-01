@@ -150,11 +150,13 @@ exports.updateUserPushToken = async (req, res, next) => {
   try {
     const userId = decodeUserIdFromToken(req.headers.authorization);
     const user = await User.findById(userId);
-    const pushToken = JSON.parse(req.body.expoPushToken);
+    const pushToken = req.body.expoPushToken;
+    console.log('> Received push token:', pushToken);
+
     user.pushToken = pushToken;
     await user.save();
-    res.status(200).json({ message: 'Push token uspešno ažuriran' });
 
+    res.status(200).json({ message: 'Push token uspešno ažuriran' });
     await writeToLog(req, `[USERS] User [${userId}] updated his expo push token to [${pushToken}].`);
   } catch (error) {
     betterErrorLog('> Error while updating user push token:', error);
