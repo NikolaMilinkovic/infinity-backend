@@ -1,9 +1,18 @@
 #!/usr/bin/env node
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('> Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('> Uncaught Exception:', err);
+});
+
 /**
  * Module dependencies.
  */
 
+const { betterErrorLog } = require('../utils/logMethods');
 const { writeToLog } = require('../utils/s3/S3Methods');
 const app = require('../app');
 const debug = require('debug')('infinity-backend:server');
@@ -29,94 +38,109 @@ const io = require('socket.io')(server);
 const logtail = require('../utils/logger');
 app.locals.io = io;
 io.on('connection', async (socket) => {
-  socket.emit('requestLastUpdated', { message: 'Send lastUpdated data' });
+  try {
+    socket.emit('requestLastUpdated', { message: 'Send lastUpdated data' });
 
-  // GET USER FROM TOKEN IN ORDER TO LOG IT
-  (async () => {
-    try {
-      const rawToken = socket.handshake.auth?.token;
-      if (!rawToken) {
-        console.log(`> Anonymous user connected: ${socket.id}`);
-        return;
+    // GET USER FROM TOKEN IN ORDER TO LOG IT
+    (async () => {
+      try {
+        const rawToken = socket.handshake.auth?.token;
+        if (!rawToken) {
+          console.log(`> Anonymous user connected: ${socket.id}`);
+          return;
+        }
+
+        const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId);
+
+        if (user) {
+          console.log(`> User connected: ${user.username} [${user._id}]`);
+          await writeToLog({}, `[SOCKET] Connected to the server.`, token);
+        } else {
+          console.log(`> Invalid token user tried to connect: ${socket.id}`);
+        }
+      } catch (err) {
+        console.log(`> Socket auth error: ${err.message}`);
       }
+    })();
 
-      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId);
-
-      if (user) {
-        console.log(`> User connected: ${user.username} [${user._id}]`);
-        await writeToLog({}, `[SOCKET] Connected to the server.`, token);
-      } else {
-        console.log(`> Invalid token user tried to connect: ${socket.id}`);
+    // LAST UPDATED CHECK
+    socket.on('lastUpdated', async (lastUpdatedData) => {
+      try {
+        await handleLastUpdatedValidation(lastUpdatedData, socket);
+      } catch (err) {
+        betterConsoleError('> Error validating lastUpdated:', err);
+        socket.emit('lastUpdatedResponse', { isSynced: false, message: 'Server error during sync' });
       }
-    } catch (err) {
-      console.log(`> Socket auth error: ${err.message}`);
-    }
-  })();
+    });
 
-  // LAST UPDATED CHECK
-  socket.on('lastUpdated', (lastUpdatedData) => {
-    // Method that validates all the dates and returns the missing data
-    handleLastUpdatedValidation(lastUpdatedData, socket);
-  });
+    // DISCONNECT
+    socket.on('disconnect', async (reason) => {
+      console.log(`> User disconnected: [${socket.id}] - Reason: ${reason}`);
 
-  // DISCONNECT
-  socket.on('disconnect', async (reason) => {
-    console.log(`> User disconnected: [${socket.id}] - Reason: ${reason}`);
+      try {
+        const rawToken = socket.handshake.auth?.token;
+        if (!rawToken) return;
 
-    try {
-      const rawToken = socket.handshake.auth?.token;
-      if (!rawToken) return;
+        const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId);
 
-      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId);
-
-      if (user) {
-        await writeToLog({}, `[SOCKET] Disconnected from server. Reason: [${reason}]`, token);
+        if (user) {
+          await writeToLog({}, `[SOCKET] Disconnected from server. Reason: [${reason}]`, token);
+        }
+      } catch (err) {
+        console.log(`> Failed to log disconnect: ${err.message}`);
       }
-    } catch (err) {
-      console.log(`> Failed to log disconnect: ${err.message}`);
-    }
-  });
+    });
 
-  // RECONNECT
-  socket.on('reconnect', () => {
-    console.log(`> User reconnected: ${socket.id}`);
-    // socket.emit('requestLastUpdated', { message: 'Send lastUpdated timestamp' });
-  });
+    // RECONNECT
+    socket.on('reconnect', () => {
+      console.log(`> User reconnected: ${socket.id}`);
+      // socket.emit('requestLastUpdated', { message: 'Send lastUpdated timestamp' });
+    });
 
-  // ERROR
-  socket.on('error', (err) => {
-    logtail.error('Socket error:', err);
-  });
+    // ERROR
+    socket.on('error', (err) => {
+      logtail.error('Socket error:', err);
+    });
+  } catch (err) {
+    betterErrorLog('> Connection-level error:', err);
+  }
 });
 
 // Handles sending the missing data to the client
 async function handleLastUpdatedValidation(data, socket) {
-  const validationResult = await validateLastUpdated(data);
-  const lastUpdated = await getLastUpdated();
-  let updatedData;
-  let responseData;
+  try {
+    const validationResult = await validateLastUpdated(data);
+    const lastUpdated = await getLastUpdated();
+    let updatedData;
+    let responseData;
 
-  if (validationResult.isEqual === false) {
-    updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys);
-    responseData = {
-      isSynced: false,
-      lastUpdated,
-      updatedData,
-      message: 'Ažuriranje podataka u toku',
-    };
-  } else {
-    updatedData = [];
-    responseData = {
-      isSynced: true,
-      message: 'Svi podaci su ažurirani',
-    };
+    if (validationResult.isEqual === false) {
+      updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys);
+      responseData = {
+        isSynced: false,
+        lastUpdated,
+        updatedData,
+        message: 'Ažuriranje podataka u toku',
+      };
+    } else {
+      updatedData = [];
+      responseData = {
+        isSynced: true,
+        message: 'Svi podaci su ažurirani',
+      };
+    }
+
+    socket.emit('lastUpdatedResponse', responseData);
+  } catch (err) {
+    betterErrorLog(
+      '[ERROR][file: www][method: handleLastUpdatedValidation] error while validating last updated document',
+      err
+    );
   }
-
-  socket.emit('lastUpdatedResponse', responseData);
 }
 
 /**
