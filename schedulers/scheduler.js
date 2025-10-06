@@ -6,7 +6,7 @@ const { startReservationsCheck, startReservationsCheckTest } = require('./notifi
 const startAllSchedulers = () => {
   console.log('> Starting all schedulers');
   startReservationsCheck();
-  startReservationsCheckTest();
+  // startReservationsCheckTest();
 };
 
 module.exports = startAllSchedulers;

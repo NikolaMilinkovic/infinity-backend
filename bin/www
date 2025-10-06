@@ -32,28 +32,28 @@ io.on('connection', async (socket) => {
   socket.emit('requestLastUpdated', { message: 'Send lastUpdated data' });
 
   // GET USER FROM TOKEN IN ORDER TO LOG IT
-  try {
-    const rawToken = socket.handshake.auth?.token;
-    if (!rawToken) {
-      console.log(`> Anonymous user connected: ${socket.id}`);
-      return;
+  (async () => {
+    try {
+      const rawToken = socket.handshake.auth?.token;
+      if (!rawToken) {
+        console.log(`> Anonymous user connected: ${socket.id}`);
+        return;
+      }
+
+      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId);
+
+      if (user) {
+        console.log(`> User connected: ${user.username} [${user._id}]`);
+        await writeToLog({}, `[SOCKET] Connected to the server.`, token);
+      } else {
+        console.log(`> Invalid token user tried to connect: ${socket.id}`);
+      }
+    } catch (err) {
+      console.log(`> Socket auth error: ${err.message}`);
     }
-
-    // remove "Bearer " if present
-    const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId);
-
-    if (user) {
-      console.log(`> User connected with socket id [${socket.id}]: [${user.username}] [${user._id}]`);
-      await writeToLog({}, `[SOCKET] Connected to the server.`, token);
-    } else {
-      console.log(`> Invalid token user tried to connect: ${socket.id}`);
-    }
-  } catch (err) {
-    console.log(`> Socket auth error: ${err.message}`);
-  }
+  })();
 
   // LAST UPDATED CHECK
   socket.on('lastUpdated', (lastUpdatedData) => {

@@ -87,11 +87,11 @@ async function createUserLogFiles(monthFolderKey) {
     const users = await User.find({}, { username: 1, _id: 1 });
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
-    const monthName = monthNames[now.getMonth()];
+    const monthStr = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
 
     for (const user of users) {
-      const userFolderKey = `${monthFolderKey}${user._id}/`;
+      const userFolderKey = `${monthFolderKey}${user._id}_[${user.username}]/`;
       // Create folder for user
       await s3.send(new PutObjectCommand({ Bucket: bucket_name, Key: userFolderKey, Body: '' }));
 
@@ -239,7 +239,7 @@ async function writeToLog(req, logContent, provided_JWT, path = 'clients/infinit
     const monthFolderKey = path
       ? `${path.replace(/\/$/, '')}/logs/${year}-${monthName}(${monthStr})/`
       : `logs/${year}-${monthName}(${monthStr})/`;
-    const userFolderKey = `${monthFolderKey}${user._id}/`;
+    const userFolderKey = `${monthFolderKey}${user._id}_[${user.username}]/`;
 
     // Ensure month and user folder exist
     if (!(await folderExists(monthFolderKey))) await createMonthlyLogFolder(path);
