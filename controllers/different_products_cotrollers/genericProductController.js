@@ -287,11 +287,11 @@ exports.updateDisplayPriority = async (req, res, next) => {
       io.emit('updateProductDisplayPriority', displayPriorityUpdates);
     }
 
+    res.status(200).json({ message: 'Pozicije uspešno ažurirane' });
     await writeToLog(
       req,
       `[PRODUCTS] Updated display priority to [${position}] for [${dresses.length + purses.length}].`
     );
-    return res.status(200).json({ message: 'Pozicije uspešno ažurirane' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error while updating a product position:', error);

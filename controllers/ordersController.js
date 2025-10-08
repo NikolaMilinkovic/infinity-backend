@@ -174,11 +174,11 @@ exports.addOrder = async (req, res, next) => {
       io.emit('allProductStockDecrease', purseUpdateData);
     }
 
+    res.status(200).json({ message: 'Porudžbina uspešno dodata' });
     await writeToLog(
       req,
       `Added a new order [${newOrder._id}] for buyer [${newOrder.buyer.name}] with total price of [${newOrder.totalPrice}].`
     );
-    return res.status(200).json({ message: 'Porudžbina uspešno dodata' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding an order:', error);
@@ -253,7 +253,6 @@ exports.removeOrdersBatch = async (req, res, next) => {
     // Generic field update to trigger fetch of updated data
     await updateLastUpdatedField('dressLastUpdatedAt', io);
     res.status(200).json({ message: 'Sve izabrane porudžbine su uspešno obrisane' });
-
     await writeToLog(req, `[ORDERS] Removed a batch of orders (${orderIds.length}): \n ${orderIds}`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -293,8 +292,8 @@ exports.getOrdersByDate = async (req, res, next) => {
       year: 'numeric',
     });
 
+    res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders });
     await writeToLog(req, `[ORDERS] Fetched orders for date [${selectedDate}]`);
-    return res.status(200).json({ message: `Porudžbine uspešno pronađene za datum ${formattedDate}`, orders: orders });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while fetching order for date ${formattedDate}`, error);
@@ -332,10 +331,10 @@ exports.getOrdersForPeriodFromDate = async (req, res, next) => {
       year: 'numeric',
     });
 
-    await writeToLog(req, `[ORDERS] Fetched orders for period from [${selectedDate}]`);
-    return res
+    res
       .status(200)
       .json({ message: `Porudžbine uspešno pronađene za period od ${formattedDate} pa do sada`, orders: orders });
+    await writeToLog(req, `[ORDERS] Fetched orders for period from [${selectedDate}]`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
     const formattedDate = req.params.date
@@ -380,10 +379,10 @@ exports.getReservationsByDate = async (req, res, next) => {
       year: 'numeric',
     });
 
-    await writeToLog(req, `[ORDERS] Fetched rreservations for date [${queryDate}]`);
-    return res
+    res
       .status(200)
       .json({ message: `Rezervacije uspešno pronađene za datum ${formattedDate}`, reservations: reservations });
+    await writeToLog(req, `[ORDERS] Fetched rreservations for date [${queryDate}]`);
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog(`> Error while fetching reservations for date ${formattedDate}`, error);
@@ -621,8 +620,8 @@ exports.packOrdersByIds = async (req, res, next) => {
     io.emit('packOrdersByIds', packedIds);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
 
+    res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
     await writeToLog(req, `[ORDERS] Packed orders:\n${packedIds}`);
-    return res.status(200).json({ message: 'Porudžbine uspešno spakovane' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog("> Error while packing orders by ID's", error);
@@ -743,8 +742,8 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     io.emit('getProcessedOrdersStatistics', newProcessedOrder);
     io.emit('addNewStatisticFile', newProcessedOrder);
     await updateLastUpdatedField('orderLastUpdatedAt', io);
+    res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
     await writeToLog(req, `[ORDERS] Parsed | Processed orders | Finished the day for courier [${courier.name}].`);
-    return res.status(200).json({ message: 'Porudžbine uspešno procesovane' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error parsing orders during excell file generation', error);
