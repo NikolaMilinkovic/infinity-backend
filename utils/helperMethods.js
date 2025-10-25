@@ -152,7 +152,6 @@ function compareObjects(data, serverData) {
     const dataValue = data[key];
     const serverValue = serverData[key];
 
-    betterConsoleLog('> ServerData is:', serverData);
     const isMatch =
       key === '_id' || key === 'boutiqueId'
         ? dataValue.toString() === serverValue.toString()
