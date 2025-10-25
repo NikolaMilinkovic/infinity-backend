@@ -182,7 +182,6 @@ async function validateLastUpdated(data) {
   try {
     const serverData = await LastUpdated.findOne({});
     const compareResult = compareObjects(data, serverData);
-    betterConsoleLog('> Compare result: ', compareResult);
     return compareResult;
   } catch (error) {
     betterErrorLog(`There was an error validation last updated objects:`, error);
