@@ -152,12 +152,15 @@ function compareObjects(data, serverData) {
     const dataValue = data[key];
     const serverValue = serverData[key];
 
-    const isMatch =
-      key === '_id' || key === 'boutiqueId'
-        ? dataValue.toString() === serverValue.toString()
-        : serverValue instanceof Date
-        ? normalizeDate(dataValue) === normalizeDate(serverValue)
-        : dataValue === serverValue;
+    let isMatch = true;
+    if (key !== 'boutiqueId') {
+      isMatch =
+        key === '_id'
+          ? dataValue.toString() === serverValue.toString()
+          : serverValue instanceof Date
+          ? normalizeDate(dataValue) === normalizeDate(serverValue)
+          : dataValue === serverValue;
+    }
 
     if (!isMatch) {
       mismatchedKeys.push(key);
