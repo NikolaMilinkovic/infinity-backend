@@ -1,7 +1,7 @@
 const Order = require('../schemas/order');
 const User = require('../schemas/user');
 const bcrypt = require('bcryptjs');
-const { AppSettings } = require('../schemas/appSchema');
+const Boutique = require('../schemas/boutiqueSchema');
 const Category = require('../schemas/category');
 const Color = require('../schemas/color');
 const Courier = require('../schemas/courier');
@@ -154,7 +154,7 @@ function compareObjects(data, serverData) {
 
     const isMatch =
       key === '_id'
-        ? dataValue === serverValue.toString()
+        ? dataValue.toString() === serverValue.toString()
         : serverValue instanceof Date
         ? normalizeDate(dataValue) === normalizeDate(serverValue)
         : dataValue === serverValue;
@@ -277,7 +277,7 @@ async function getUpdatedMismatchedData(mismatchedKeys) {
             break;
           // APP SETTINGS
           case 'appSchema':
-            data = await AppSettings.findOne();
+            data = await Boutique.findOne();
             break;
           // CATEGORY
           case 'category':
@@ -416,18 +416,25 @@ async function getSumOfAllProducts() {
 
 async function ensureAppSettingsDocument() {
   try {
-    let document = await AppSettings.findOne({});
-    console.log(document);
+    let document = await Boutique.findOne({});
     if (!document) {
-      document = new AppSettings({});
+      document = new Boutique({});
+      document.boutiqueName = 'Infinity';
       await document.save();
-      console.log('> Created a new AppSettings document.');
+      console.log('> Created a new Boutique document.');
     } else {
-      console.log('> AppSettings document found.');
+      console.log('> Boutique document found.');
     }
   } catch (error) {
     betterErrorLog('> Error ensuring AppSettings document exists:', error);
   }
+}
+
+function isAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
 }
 
 module.exports = {
@@ -442,4 +449,5 @@ module.exports = {
   ensureLastUpdatedDocument,
   getSumOfAllProducts,
   ensureAppSettingsDocument,
+  isAdmin,
 };
