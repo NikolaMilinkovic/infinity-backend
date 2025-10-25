@@ -14,7 +14,6 @@ const PurseColor = require('../schemas/purseColor');
 const Supplier = require('../schemas/supplier');
 const { betterErrorLog, betterConsoleLog } = require('./logMethods');
 const { LastUpdated } = require('../schemas/lastUpdated');
-const mongoose = require('mongoose');
 
 /**
  * Adds a user to the database if they do not already exist.
@@ -153,15 +152,8 @@ function compareObjects(data, serverData) {
     const dataValue = data[key];
     const serverValue = serverData[key];
 
-    // const isMatch =
-    //   key === '_id'
-    //     ? dataValue.toString() === serverValue.toString()
-    //     : serverValue instanceof Date
-    //     ? normalizeDate(dataValue) === normalizeDate(serverValue)
-    //     : dataValue === serverValue;
-
     const isMatch =
-      mongoose.Types.ObjectId.isValid(dataValue) && serverValue instanceof mongoose.Types.ObjectId
+      key === '_id' || key === 'boutiqueId'
         ? dataValue.toString() === serverValue.toString()
         : serverValue instanceof Date
         ? normalizeDate(dataValue) === normalizeDate(serverValue)
