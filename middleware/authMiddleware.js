@@ -43,9 +43,10 @@ module.exports = function () {
     try {
       const { username, password } = req.body;
       if (!username)
-        return next(new CustomError('Unesite vas username.', 400, req, { username: username, password: password }));
-      if (!password) return next(new CustomError('Unesite vasu sifru.', 400, req));
+        return next(new CustomError('Unesite vaš username.', 400, req, { username: username, password: password }));
+      if (!password) return next(new CustomError('Unesite vašu šifru.', 400, req));
 
+      // Fetch user via username
       const user = await User.findOne({ username: username });
       if (!user) {
         return next(
@@ -56,6 +57,7 @@ module.exports = function () {
         );
       }
 
+      // Compare passwords
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         return next(
@@ -71,6 +73,7 @@ module.exports = function () {
       res.json({ message: 'Uspešno logovanje na sistem.', token });
       await writeToLog({}, `[LOGIN] Logged in.`, token);
     } catch (error) {
+      const { username, password } = req.body || {};
       betterErrorLog('> Error logging in a user:', error);
       return next(
         new CustomError('Uh oh.. Server error.. Vreme je da pozovete Milija..', 500, req, {

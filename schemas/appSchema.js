@@ -3,6 +3,12 @@ const Schema = mongoose.Schema;
 
 const appSchema = new Schema(
   {
+    boutiqueName: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
     settings: {
       appIcon: {
         appIconUri: {

@@ -1,7 +1,13 @@
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
 const { parseOrderData } = require('../utils/ai/AiMethods');
-const { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 } = require('../utils/s3/S3DefaultMethods');
+const {
+  uploadMediaToS3,
+  deleteMediaFromS3,
+  uploadFileToS3,
+  getCurrentDate,
+  getCurrentTime,
+} = require('../utils/s3/S3DefaultMethods');
 const Orders = require('../schemas/order');
 const ProcessedOrders = require('../schemas/processedOrdersForPeriod');
 const { dressColorStockHandler, dressBatchColorStockHandler } = require('../utils/dressStockMethods');
@@ -40,7 +46,9 @@ exports.addOrder = async (req, res, next) => {
       !productData || // Check if productData exists (use ! instead of length check)
       !Array.isArray(productData) || // Ensure productData is an array
       productData.length === 0 || // Check if productData is empty
-      !productsPrice || // Check if productsPrice exists
+      productsPrice === undefined ||
+      productsPrice === null ||
+      isNaN(productsPrice) || // ProductsPrice can be 0!!!
       typeof reservation !== 'boolean' || // Check if reservation is a boolean
       typeof packedIndicator !== 'boolean' || // Check if reservation is a boolean
       typeof packed !== 'boolean' || // Check if packed is a boolean
@@ -699,6 +707,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
     if (fileData) {
       const buffer = Buffer.from(fileData, 'base64');
       uploadedFile = await uploadFileToS3(
+        `orders-for-${getCurrentDate()}-${getCurrentTime()}-${courier}.xlsx`,
         { buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
         '',
         next

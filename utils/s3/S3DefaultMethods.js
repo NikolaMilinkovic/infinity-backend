@@ -19,6 +19,9 @@ async function resizeImage(buffer, x = 1080, y = 1920) {
 function getCurrentDate() {
   return new Date().toLocaleDateString('en-UK').replace(/\//g, '-');
 }
+function getCurrentTime() {
+  return new Date().toISOString().slice(11, 16).replace(':', ''); // e.g. "1423"
+}
 
 async function uploadMediaToS3(file, folderPath = '', next, withResize = true, x = 480, y = 640) {
   try {
@@ -82,9 +85,10 @@ async function deleteMediaFromS3(imageName, path = '') {
   }
 }
 
-async function uploadFileToS3(file, filePath = '', next) {
+async function uploadFileToS3(fileName = '', file, filePath = '', next) {
   try {
-    const fileName = `orders-for-${getCurrentDate()}.xlsx`;
+    if (!fileName) next(new CustomError('Ime fajla je neophodno.', 404));
+    betterConsoleLog('> ime fajla:', fileName);
     // Construct key with optional path
     const key = filePath ? `${filePath.replace(/\/$/, '')}/${fileName}` : fileName;
 
@@ -117,4 +121,4 @@ async function uploadFileToS3(file, filePath = '', next) {
   }
 }
 
-module.exports = { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3 };
+module.exports = { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3, getCurrentDate, getCurrentTime };
