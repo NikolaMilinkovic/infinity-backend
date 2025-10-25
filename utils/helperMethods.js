@@ -154,6 +154,7 @@ function compareObjects(data, serverData) {
 
     let isMatch = true;
     if (key !== 'boutiqueId') {
+      console.log('> not boutique id, comparing...');
       isMatch =
         key === '_id'
           ? dataValue.toString() === serverValue.toString()
