@@ -1,7 +1,7 @@
 const Order = require('../schemas/order');
 const User = require('../schemas/user');
 const bcrypt = require('bcryptjs');
-const Boutique = require('../schemas/boutiqueSchema');
+const { AppSettings } = require('../schemas/appSchema');
 const Category = require('../schemas/category');
 const Color = require('../schemas/color');
 const Courier = require('../schemas/courier');
@@ -277,7 +277,7 @@ async function getUpdatedMismatchedData(mismatchedKeys) {
             break;
           // APP SETTINGS
           case 'appSchema':
-            data = await Boutique.findOne();
+            data = await AppSettings.findOne();
             break;
           // CATEGORY
           case 'category':
@@ -416,14 +416,14 @@ async function getSumOfAllProducts() {
 
 async function ensureAppSettingsDocument() {
   try {
-    let document = await Boutique.findOne({});
+    let document = await AppSettings.findOne({});
     if (!document) {
-      document = new Boutique({});
+      document = new AppSettings({});
       document.boutiqueName = 'Infinity';
       await document.save();
-      console.log('> Created a new Boutique document.');
+      console.log('> Created a new AppSettings document.');
     } else {
-      console.log('> Boutique document found.');
+      console.log('> AppSettings document found.');
     }
   } catch (error) {
     betterErrorLog('> Error ensuring AppSettings document exists:', error);
