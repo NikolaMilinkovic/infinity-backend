@@ -73,6 +73,11 @@ const UserSchema = new Schema(
         update: { type: Boolean, required: false, default: true },
         delete: { type: Boolean, required: false, default: true },
       },
+      boutiques: {
+        create: { type: Boolean, required: false, default: false },
+        update: { type: Boolean, required: false, default: false },
+        delete: { type: Boolean, required: false, default: false },
+      },
     },
     settings: {
       defaults: {
