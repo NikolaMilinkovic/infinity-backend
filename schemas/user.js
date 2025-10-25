@@ -37,6 +37,7 @@ const UserSchema = new Schema(
         podesavanja: { type: Boolean, required: false, default: true },
         zavrsi_dan: { type: Boolean, required: false, default: true },
         admin_dashboard: { type: Boolean, required: false, default: false },
+        global_dashboard: { type: Boolean, required: false, default: false },
       },
       products: {
         create: { type: Boolean, required: false, default: true },
