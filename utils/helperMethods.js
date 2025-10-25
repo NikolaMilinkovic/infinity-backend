@@ -179,6 +179,7 @@ async function validateLastUpdated(data) {
   try {
     const serverData = await LastUpdated.findOne({});
     const compareResult = compareObjects(data, serverData);
+    betterConsoleLog('> Compare result: ', compareResult);
     return compareResult;
   } catch (error) {
     betterErrorLog(`There was an error validation last updated objects:`, error);
@@ -277,7 +278,7 @@ async function getUpdatedMismatchedData(mismatchedKeys) {
             break;
           // APP SETTINGS
           case 'appSchema':
-            data = await AppSettings.findOne();
+            data = await AppSchema.findOne();
             break;
           // CATEGORY
           case 'category':
@@ -416,14 +417,14 @@ async function getSumOfAllProducts() {
 
 async function ensureAppSettingsDocument() {
   try {
-    let document = await AppSettings.findOne({});
+    let document = await AppSchema.findOne({});
     if (!document) {
-      document = new AppSettings({});
+      document = new AppSchema({});
       document.boutiqueName = 'Infinity';
       await document.save();
-      console.log('> Created a new AppSettings document.');
+      console.log('> Created a new Boutique document.');
     } else {
-      console.log('> AppSettings document found.');
+      console.log('> Boutique document found.');
     }
   } catch (error) {
     betterErrorLog('> Error ensuring AppSettings document exists:', error);
