@@ -8,6 +8,12 @@ const UserSchema = new Schema(
       required: [true, 'Please enter a valid username'],
       unique: [true, 'Username already registered'],
     },
+    boutiqueId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Boutique',
+      required: false,
+      default: null,
+    },
     password: {
       type: String,
       required: [true, 'Please enter a valid password'],
@@ -101,6 +107,11 @@ const UserSchema = new Schema(
         type: String,
         required: false,
         default: 'srb',
+      },
+      firstTimeSetupDone: {
+        type: Boolean,
+        required: false,
+        default: false,
       },
     },
   },

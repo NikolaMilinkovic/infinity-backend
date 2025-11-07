@@ -13,13 +13,13 @@ const mongoose = require('mongoose');
  * @param {string} orderId
  * @returns {Promise<Object|null>}
  */
-async function removeOrderById(orderId, req) {
+async function removeOrderById(orderId, boutiqueId, req) {
   // Start a MongoDB session for transaction
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const orderData = await Order.findById(orderId).session(session);
+    const orderData = await Order.findOne({ _id: orderId, boutiqueId }).session(session);
     if (!orderData) {
       throw new CustomError(`Porudžbina sa ID: ${orderId} nije pronađena`, 404);
     }
@@ -105,7 +105,7 @@ async function removeOrderById(orderId, req) {
     }
 
     // Delete the order
-    const deletedOrder = await Order.findByIdAndDelete(orderId, { session });
+    const deletedOrder = await Order.findOneAndDelete({ _id: orderId, boutiqueId }, { session });
 
     // Commit transaction
     await session.commitTransaction();
@@ -114,18 +114,16 @@ async function removeOrderById(orderId, req) {
     const io = req.app.locals.io;
     if (io) {
       // Emit order removal
-      io.emit('orderRemoved', orderId);
+      io.to(`boutique-${boutiqueId}`).emit('orderRemoved', orderId);
 
       // Emit individual dress updates
       dressUpdates.forEach((data) => {
-        io.emit('handleDressStockIncrease', data);
-        io.emit('allProductStockIncrease', data);
+        io.to(`boutique-${boutiqueId}`).emit('allProductStockIncrease', data);
       });
 
       // Emit individual purse updates
       purseUpdates.forEach((data) => {
-        io.emit('handlePurseStockIncrease', data);
-        io.emit('allProductStockIncrease', data);
+        io.to(`boutique-${boutiqueId}`).emit('allProductStockIncrease', data);
       });
     }
 
@@ -146,12 +144,15 @@ async function removeOrderById(orderId, req) {
  * @param {string[]} orderIds
  * @returns {Promise<{ acknowledged: boolean, deletedCount: number }>}
  */
-async function removeBatchOrdersById(orderIds, req) {
+async function removeBatchOrdersById(orderIds, boutiqueId, req) {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const fetchedOrders = await Order.find({ _id: { $in: orderIds } }).session(session);
+    const fetchedOrders = await Order.find({
+      _id: { $in: orderIds },
+      boutiqueId,
+    }).session(session);
     if (!fetchedOrders.length) {
       throw new CustomError('No orders found with the provided IDs', 404);
     }
@@ -283,7 +284,7 @@ async function removeBatchOrdersById(orderIds, req) {
     // }
 
     // Delete orders
-    const deletedOrders = await Order.deleteMany({ _id: { $in: orderIds } }, { session });
+    const deletedOrders = await Order.deleteMany({ _id: { $in: orderIds }, boutiqueId }, { session });
 
     // Commit transaction
     await session.commitTransaction();
@@ -292,8 +293,8 @@ async function removeBatchOrdersById(orderIds, req) {
     const data = { dresses: dressItems, purses: purseItems };
     const io = req.app.locals.io;
     if (io) {
-      io.emit('orderBatchRemoved', orderIds);
-      io.emit('batchStockIncrease', data);
+      io.to(`boutique-${boutiqueId}`).emit('orderBatchRemoved', orderIds);
+      io.to(`boutique-${boutiqueId}`).emit('batchStockIncrease', data);
     }
 
     return deletedOrders;

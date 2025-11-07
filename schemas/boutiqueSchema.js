@@ -1,13 +1,28 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const appSchema = new Schema(
+const Boutique = new Schema(
   {
     boutiqueName: {
       type: String,
       required: true,
       unique: true,
       trim: true,
+    },
+    isActive: {
+      type: Boolean,
+      required: true,
+      default: true,
+    },
+    billingDue: {
+      type: Date,
+      required: false,
+      default: null,
+    },
+    lastUpdatedId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'LastUpdated',
+      required: false,
     },
     settings: {
       appIcon: {
@@ -20,6 +35,13 @@ const appSchema = new Schema(
           type: String,
           required: false,
           default: '',
+        },
+      },
+      orders: {
+        requireBuyerImage: {
+          type: Boolean,
+          required: false,
+          default: false,
         },
       },
       defaults: {
@@ -35,37 +57,8 @@ const appSchema = new Schema(
         },
       },
     },
-    version: {
-      type: String,
-      required: false,
-      unique: false,
-      default: '1.0.0',
-    },
-    buildLink: {
-      type: String,
-      required: false,
-      default: '',
-    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('AppSchema', appSchema);
-
-const AppSettings = mongoose.model('AppSettings', appSchema);
-async function initializeAppSettings() {
-  try {
-    const existingSettings = await AppSettings.findOne({});
-
-    if (!existingSettings) {
-      await AppSettings.create({});
-    }
-  } catch (error) {
-    console.error('Error initializing app settings: ', error);
-  }
-}
-
-module.exports = {
-  AppSettings,
-  initializeAppSettings,
-};
+module.exports = mongoose.model('Boutique', Boutique);

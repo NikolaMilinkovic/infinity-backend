@@ -1,17 +1,21 @@
 const CustomError = require('../utils/CustomError');
-const { AppSettings } = require('../schemas/appSchema');
+const Boutique = require('../schemas/boutiqueSchema');
 const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
 const { uploadMediaToS3 } = require('../utils/s3/S3DefaultMethods');
-const { updateLastUpdatedField } = require('../utils/helperMethods');
+const { updateLastUpdatedField, getBoutiqueId } = require('../utils/helperMethods');
+const { writeToLog } = require('../utils/s3/S3Methods');
+const Version = require('../schemas/version');
 
 exports.getAppSettings = async (req, res, next) => {
   try {
-    const appData = await AppSettings.findOne({});
+    const appData = await Boutique.findById(req.user.boutiqueId);
     res.status(200).json({
       message: 'Podešavanja za aplikaciju uspešno preuzeta',
-      settings: appData.settings,
-      version: appData?.version,
-      buildLink: appData?.buildLink || '',
+      boutiqueData: appData,
+      // settings: appData.settings,
+      // version: appData?.version,
+      // buildLink: appData?.buildLink || '',
+      // boutiqueName: appData?.boutiqueName,
     });
   } catch (error) {
     betterErrorLog('> Error while fetching app settings:', error);
@@ -21,19 +25,24 @@ exports.getAppSettings = async (req, res, next) => {
 
 exports.updateAppSettings = async (req, res, next) => {
   try {
-    // Ensure file is present
-    if (!req.file) {
-      return next(new CustomError('Slika nije prosleđena', 400, req));
+    const newSettings = JSON.parse(req.body.settings);
+    const boutiqueId = getBoutiqueId(req);
+    const app = await Boutique.findById(boutiqueId);
+    if (!app) {
+      return next(new CustomError('Podaci o aplikaciji nisu pronađeni.', 400, req));
     }
 
-    // return betterConsoleLog('> req.file', req.file);
-    // Upload image to S3 (goes to root if no path provided)
-    const uploadResult = await uploadMediaToS3(req.file, 'clients/infinity_boutique/images/app_icons', next, false);
+    // Boutique Icon
+    if (req.file && (!app.settings.appIcon || app.settings.appIcon.appIconName !== req.file.originalname)) {
+      uploadResult = await uploadMediaToS3(req.file, `clients/${app.boutiqueName}/images/app_icons`, false);
+      newSettings.appIcon = {
+        appIconUri: uploadResult.uri,
+        appIconName: uploadResult.imageName,
+      };
+    }
 
-    const app = await AppSettings.findOne({});
-    app.settings.appIcon.appIconUri = uploadResult.uri;
-    app.settings.appIcon.appIconName = uploadResult.imageName;
-
+    // Other settings
+    app.settings = newSettings;
     const updatedAppSettings = await app.save();
 
     res.status(200).json({
@@ -43,8 +52,9 @@ exports.updateAppSettings = async (req, res, next) => {
 
     // EMITE EVENT VIA SOCKETS TO UPDATE APP SETTINGS
     const io = req.app.locals.io;
-    io.emit('updateAppSettings', updatedAppSettings);
-    updateLastUpdatedField('appSchemaLastUpdatedAt', io);
+    updateLastUpdatedField('appSchemaLastUpdatedAt', io, boutiqueId);
+    io.to(`boutique-${boutiqueId}`).emit('updateAppSettings', updatedAppSettings);
+    await writeToLog(req, `[APP SETTINGS] Updated boutique icon with [${uploadResult.uri}].`);
   } catch (error) {
     betterErrorLog('> Error while updating app settings:', error);
     return next(
@@ -56,5 +66,18 @@ exports.updateAppSettings = async (req, res, next) => {
         mimetype: app.file.mimetype,
       })
     );
+  }
+};
+
+exports.getAppVersion = async (req, res, next) => {
+  try {
+    const versionData = await Version.findOne();
+    res.status(200).json({
+      message: 'Verzija aplikacije uspešno preuzeta',
+      versionData: versionData,
+    });
+  } catch (error) {
+    betterErrorLog('> Error while fetching app settings:', error);
+    return next(new CustomError('Došlo je do problema prilikom preuzimanja verzije aplikacije.', 500));
   }
 };

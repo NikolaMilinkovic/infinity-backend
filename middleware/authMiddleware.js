@@ -4,6 +4,7 @@ const ExtractJwt = require('passport-jwt').ExtractJwt;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../schemas/user');
+const Boutique = require('../schemas/boutiqueSchema');
 require('dotenv').config();
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog } = require('../utils/logMethods');
@@ -70,8 +71,15 @@ module.exports = function () {
 
       // Generate JWT token
       const token = generateToken(user._id, 10);
+      if (user && user?.boutiqueId) {
+        console.log(`[USER BOUTIQUE ID IS]: ${user?.boutiqueId}`);
+        const boutique_data = await Boutique.findById(user.boutiqueId);
+        req.boutiqueName = boutique_data.boutiqueName;
+      }
       res.json({ message: 'Uspešno logovanje na sistem.', token });
-      await writeToLog({}, `[LOGIN] Logged in.`, token);
+      if (token) {
+        await writeToLog({}, `[LOGIN] Logged in.`, token);
+      }
     } catch (error) {
       const { username, password } = req.body || {};
       betterErrorLog('> Error logging in a user:', error);
@@ -110,10 +118,24 @@ module.exports = function () {
     }
   }
 
+  async function getUserFromToken(token) {
+    if (!token) return null;
+    try {
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
+      if (!decoded?.userId) return null;
+      return await User.findById(decoded.userId);
+    } catch (err) {
+      betterErrorLog('Error decoding token in getUserFromToken', err);
+      return null;
+    }
+  }
+
   return {
     login,
     authenticateJWT,
     initializeAuth,
     generateToken,
+    getUserFromToken,
   };
 };

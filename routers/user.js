@@ -5,6 +5,7 @@ const {
   getUserData,
   updateUserSettings,
   updateUserPushToken,
+  resetUserPushToken,
   addUser,
   updateUser,
   removeUser,
@@ -19,5 +20,6 @@ router.route('/update-user').post(updateUser);
 router.route('/remove-user').delete(removeUser);
 
 router.route('/update-user-push-token').post(updateUserPushToken);
+router.route('/reset-user-push-token').post(resetUserPushToken);
 
 module.exports = router;

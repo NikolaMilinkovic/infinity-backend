@@ -1,7 +1,7 @@
 const Order = require('../schemas/order');
 const User = require('../schemas/user');
 const bcrypt = require('bcryptjs');
-const { AppSettings } = require('../schemas/appSchema');
+const Boutique = require('../schemas/boutiqueSchema');
 const Category = require('../schemas/category');
 const Color = require('../schemas/color');
 const Courier = require('../schemas/courier');
@@ -172,19 +172,22 @@ function compareObjects(data, serverData) {
 }
 
 /**
- * Compares users version of LastUpdated document with the one on the server
+ * Compares user's version of LastUpdated document with the one on the server
  * Returns true if they are the same and an empty array
  * If they are different returns false and all the keys that are different
  * @param {LastUpdated document that is present on the client} data
+ * @param {LastUpdated document that is present on the server} lastUpdated
  * @returns {isEqual: Boolean, mismatchedKeys: String[]}
  */
-async function validateLastUpdated(data) {
+async function validateLastUpdated(data, lastUpdated) {
   try {
-    const serverData = await LastUpdated.findOne({});
-    const compareResult = compareObjects(data, serverData);
+    if (!lastUpdated) {
+      return { isEqual: false, mismatchedKeys: Object.keys(data) };
+    }
+    const compareResult = compareObjects(data, lastUpdated);
     return compareResult;
   } catch (error) {
-    betterErrorLog(`There was an error validation last updated objects:`, error);
+    betterErrorLog('There was an error validating last updated objects:', error);
   }
 }
 
@@ -207,11 +210,11 @@ async function validateLastUpdated(data) {
  * - orderLastUpdatedAt
  * @returns {isUpdated: Boolean, newDate: Date | null}
  */
-async function updateLastUpdatedField(key, io) {
+async function updateLastUpdatedField(key, io, boutiqueId) {
   if (!key) console.error('> key in updateLastUpdatedField method is required');
   if (!io) console.error('> io in updateLastUpdatedField method is required');
   try {
-    const document = await LastUpdated.findOne({});
+    const document = await LastUpdated.findOne({ boutiqueId });
     const date = new Date();
     if (!document) {
       console.error('Document not found in the updateLastUpdatedField method');
@@ -220,7 +223,7 @@ async function updateLastUpdatedField(key, io) {
     document[key] = date;
     await document.save();
     if (io) {
-      io.emit('syncLastUpdated', document);
+      io.to(`boutique-${boutiqueId}`).emit('syncLastUpdated', document);
     }
 
     betterConsoleLog('> Last updated:', document);
@@ -232,15 +235,16 @@ async function updateLastUpdatedField(key, io) {
 }
 
 /**
- * LastUpdated.findOne({})
+ * Fetch the LastUpdated document for a specific boutique
+ * @param {string} boutiqueId
  * @returns LastUpdated document from the database
  */
-async function getLastUpdated() {
+async function getLastUpdated(boutiqueId) {
   try {
-    const document = await LastUpdated.findOne({});
+    const document = await LastUpdated.findOne({ boutiqueId });
     return document;
   } catch (error) {
-    betterErrorLog(`There was an error while fetching the LastUpdated document`, error);
+    betterErrorLog('There was an error while fetching the LastUpdated document', error);
   }
 }
 
@@ -260,39 +264,37 @@ async function getLastUpdated() {
 // supplier                         ✔️
 // order                            ✔️
 
-async function getUpdatedMismatchedData(mismatchedKeys) {
-  if (mismatchedKeys.length === 0) return;
+async function getUpdatedMismatchedData(mismatchedKeys, boutiqueId) {
+  if (!mismatchedKeys.length) return;
   let results = [];
   try {
     const keys = mismatchedKeys
-      .filter((key) => key && key !== 'updatedAt')
-      .map((key) => {
-        const formattedKey = formatFieldName(key);
-        return formattedKey;
-      });
+      .map((key) => formatFieldName(key))
+      .filter((key) => !['_id', 'createdAt', 'updatedAt', '__v'].includes(key));
+
     for (const key of keys) {
       try {
         let data;
-
         switch (key) {
           // USER
           case 'user':
+            data = await User.find({ boutiqueId });
             break;
           // APP SETTINGS
           case 'appSchema':
-            data = await AppSchema.findOne();
+            data = await Boutique.findById(boutiqueId);
             break;
           // CATEGORY
           case 'category':
-            data = await Category.find();
+            data = await Category.find({ boutiqueId });
             break;
           // COURIER
           case 'courier':
-            data = await Courier.find();
+            data = await Courier.find({ boutiqueId });
             break;
           // COLOR
           case 'color':
-            data = await Color.find();
+            data = await Color.find({ boutiqueId });
             break;
           // DRESS
           case 'dress':
@@ -312,15 +314,15 @@ async function getUpdatedMismatchedData(mismatchedKeys) {
             break;
           // SUPPLIER
           case 'supplier':
-            data = await Supplier.find();
+            data = await Supplier.find({ boutiqueId });
             break;
           // ORDER
           case 'order':
-            const processed = await Order.find({ processed: true })
+            const processed = await Order.find({ processed: true, boutiqueId })
               .sort({ createdAt: -1 })
               .populate('products.itemReference');
 
-            const unprocessed = await Order.find({ processed: false })
+            const unprocessed = await Order.find({ processed: false, boutiqueId })
               .sort({ createdAt: -1 })
               .populate('products.itemReference');
 
@@ -346,6 +348,7 @@ async function getUpdatedMismatchedData(mismatchedKeys) {
         });
       }
     }
+
     return results;
   } catch (error) {
     betterErrorLog(`There was an error in getUpdatedMismatchedData method while fetching data.`, error);
@@ -364,23 +367,6 @@ function formatFieldName(fieldName) {
   // Remove 'LastUpdatedAt' and capitalize the first character
   const cleanedFieldName = fieldName.replace(regex, '');
   return cleanedFieldName;
-}
-
-/**
- * Validates the existence of LastUpdated file in the database
- * If file is not present it will create a new one
- */
-async function ensureLastUpdatedDocument() {
-  try {
-    let document = await LastUpdated.findOne({});
-    if (!document) {
-      document = new LastUpdated({});
-      await document.save();
-      console.log('> Created a new LastUpdated document.');
-    }
-  } catch (error) {
-    betterErrorLog('> Error ensuring LastUpdated document exists:', error);
-  }
 }
 
 /**
@@ -419,9 +405,9 @@ async function getSumOfAllProducts() {
 
 async function ensureAppSettingsDocument() {
   try {
-    let document = await AppSchema.findOne({});
+    let document = await Boutique.findOne({});
     if (!document) {
-      document = new AppSchema({});
+      document = new Boutique({});
       document.boutiqueName = 'Infinity';
       await document.save();
       console.log('> Created a new Boutique document.');
@@ -440,6 +426,14 @@ function isAdmin(req, res, next) {
   next();
 }
 
+function getBoutiqueId(req) {
+  if (req?.user?.boutiqueId) {
+    return req.user.boutiqueId;
+  } else {
+    throw new Error('> Boutique id not found in getBoutiqueId!');
+  }
+}
+
 module.exports = {
   addUserOnStartup,
   resetAllOrdersPackedState,
@@ -449,8 +443,8 @@ module.exports = {
   updateLastUpdatedField,
   getLastUpdated,
   getUpdatedMismatchedData,
-  ensureLastUpdatedDocument,
   getSumOfAllProducts,
   ensureAppSettingsDocument,
   isAdmin,
+  getBoutiqueId,
 };

@@ -4,6 +4,7 @@ const {
   DeleteObjectCommand,
   ListObjectsV2Command,
   CopyObjectCommand,
+  PutObjectTaggingCommand,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const dotenv = require('dotenv').config();
@@ -14,6 +15,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const { betterConsoleLog, betterErrorLog } = require('../logMethods');
 const User = require('../../schemas/user');
+const Boutique = require('../../schemas/boutiqueSchema');
 const { decodeUserIdFromToken } = require('../decodeUserIdFromToken');
 
 function randomImageName(bytes = 32) {
@@ -46,18 +48,15 @@ const monthNames = [
  * Creates new log folder for the month in S3
  * Will create subfolders for each user if missing
  */
-async function createMonthlyLogFolder(path = 'clients/infinity_boutique') {
+async function createMonthlyLogFolder(path = '') {
   try {
+    if (!path) throw new Error('createMonthlyLogFolder requires a valid path!');
     const now = new Date();
     const year = now.getFullYear();
     const monthNum = now.getMonth();
     const monthName = monthNames[monthNum];
-    const monthStr = String(monthNum + 1).padStart(2, '0');
 
-    // const monthFolderKey = `logs/${year}-${monthName}(${monthStr})/`;
-    const monthFolderKey = path
-      ? `${path.replace(/\/$/, '')}/logs/${year}-${monthName}(${monthStr})/`
-      : `logs/${year}-${monthName}(${monthStr})/`;
+    const monthFolderKey = `${path.replace(/\/$/, '')}/logs/${year}-${monthName}/`;
 
     // Ensure month folder exists
     await s3.send(new PutObjectCommand({ Bucket: bucket_name, Key: monthFolderKey, Body: '' }));
@@ -119,9 +118,11 @@ async function createUserLogFiles(monthFolderKey) {
 /**
  * Creates a new log file for the new user in the current log folder
  * @param {*} user
+ * @param {string} path - Usualy this is a boutiqueName field
  */
-async function addLogFileForNewUser(user, path = 'clients/infinity_boutique') {
+async function addLogFileForNewUser(user, path = '') {
   try {
+    if (!path) throw new Error('addLogFileForNewUser requires a valid path!');
     const now = new Date();
     const year = now.getFullYear();
     const monthNum = now.getMonth();
@@ -129,8 +130,7 @@ async function addLogFileForNewUser(user, path = 'clients/infinity_boutique') {
     const monthStr = String(monthNum + 1).padStart(2, '0');
 
     const folderName = `${year}-${monthName}(${monthStr})`;
-    // const folderKey = `logs/${folderName}/`;
-    const folderKey = path ? `${path.replace(/\/$/, '')}/logs/${folderName}/` : `logs/${folderName}/`;
+    const folderKey = `clients/${path.replace(/\/$/, '')}/logs/${folderName}/`;
 
     const fileName = `${user._id}_${user.username}_${monthName}_${year}_log.txt`;
     const fileKey = `${folderKey}${fileName}`;
@@ -155,9 +155,11 @@ async function addLogFileForNewUser(user, path = 'clients/infinity_boutique') {
  * @param {User _id} userId
  * @param {Old username} oldUsername
  * @param {New Username} newUsername
+ * @param {Boutique Name to be used inside path} path
  */
-async function renameUserLogFile(userId, oldUsername, newUsername, path = 'clients/infinity_boutique') {
+async function renameUserLogFile(userId, oldUsername, newUsername, path = '') {
   try {
+    if (!path) throw new Error('renameUserLogFile requires a valid path!');
     const now = new Date();
     const year = now.getFullYear();
     const monthNum = now.getMonth();
@@ -165,8 +167,7 @@ async function renameUserLogFile(userId, oldUsername, newUsername, path = 'clien
     const monthStr = String(monthNum + 1).padStart(2, '0');
 
     const folderName = `${year}-${monthName}(${monthStr})`;
-    // const folderKey = `logs/${folderName}/`;
-    const folderKey = path ? `${path.replace(/\/$/, '')}/logs/${folderName}/` : `logs/${folderName}/`;
+    const folderKey = `clients/${path.replace(/\/$/, '')}/logs/${folderName}/`;
 
     const oldFileKey = `${folderKey}${userId}_${oldUsername}_${monthName}_${year}_log.txt`;
     const newFileKey = `${folderKey}${userId}_${newUsername}_${monthName}_${year}_log.txt`;
@@ -217,7 +218,7 @@ function formatTimestamp(date) {
   return `${day}.${month}.${year} | ${hours}:${minutes}`;
 }
 
-async function writeToLog(req, logContent, provided_JWT, path = 'clients/infinity_boutique') {
+async function writeToLog(req, logContent, provided_JWT) {
   try {
     // 1. Decode user
     let token = provided_JWT || req.headers.authorization;
@@ -225,7 +226,9 @@ async function writeToLog(req, logContent, provided_JWT, path = 'clients/infinit
 
     const userId = decodeUserIdFromToken(token);
     const user = await User.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new Error('User not found while writing to log');
+    const boutique = await Boutique.findById(user.boutiqueId);
+    if (!boutique) throw new Error('Boutique not found while writing to log');
 
     // 2. Determine folder and file paths
     const now = new Date();
@@ -235,14 +238,11 @@ async function writeToLog(req, logContent, provided_JWT, path = 'clients/infinit
     const monthStr = String(monthNum + 1).padStart(2, '0');
     const dayStr = String(now.getDate()).padStart(2, '0');
 
-    // const monthFolderKey = `logs/${year}-${monthName}(${monthStr})/`;
-    const monthFolderKey = path
-      ? `${path.replace(/\/$/, '')}/logs/${year}-${monthName}(${monthStr})/`
-      : `logs/${year}-${monthName}(${monthStr})/`;
+    const monthFolderKey = `clients/${boutique.boutiqueName}/logs/${year}-${monthName}(${monthStr})/`;
     const userFolderKey = `${monthFolderKey}${user._id}_[${user.username}]/`;
 
     // Ensure month and user folder exist
-    if (!(await folderExists(monthFolderKey))) await createMonthlyLogFolder(path);
+    if (!(await folderExists(monthFolderKey))) await createMonthlyLogFolder(boutique.boutiqueName);
     if (!(await folderExists(userFolderKey)))
       await s3.send(new PutObjectCommand({ Bucket: bucket_name, Key: userFolderKey, Body: '' }));
 
@@ -294,10 +294,47 @@ async function folderExists(folderKey) {
   return result.Contents && result.Contents.length > 0;
 }
 
+async function ensureTagsOnAllProfileImages() {
+  const prefix = 'clients/infinity_boutique/images/profiles/';
+  const tags = [{ Key: 'Type', Value: 'orderProfileImage' }];
+  let token;
+  let count = 0;
+  do {
+    const list = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket_name,
+        Prefix: prefix,
+        ContinuationToken: token,
+      })
+    );
+
+    for (const obj of list.Contents || []) {
+      await s3.send(
+        new PutObjectTaggingCommand({
+          Bucket: bucket_name,
+          Key: obj.Key,
+          Tagging: { TagSet: tags },
+        })
+      );
+
+      count++;
+      console.log(`> Tagged image number ${count}`);
+      if (count % 999 === 0) {
+        console.log(`Tagged ${count} images so far...`);
+      }
+    }
+
+    token = list.IsTruncated ? list.NextContinuationToken : undefined;
+  } while (token);
+
+  console.log('Done tagging all objects.');
+}
+
 module.exports = {
   createMonthlyLogFolder,
   createUserLogFiles,
   addLogFileForNewUser,
   renameUserLogFile,
   writeToLog,
+  ensureTagsOnAllProfileImages,
 };

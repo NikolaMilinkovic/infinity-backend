@@ -3,11 +3,11 @@ const Schema = mongoose.Schema;
 
 const lastUpdatedSchema = new Schema(
   {
-    // boutiqueId: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: 'Boutique',
-    //   required: true,
-    // },
+    boutiqueId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Boutique',
+      required: true,
+    },
     appSchemaLastUpdatedAt: {
       type: Date,
       default: Date.now,
@@ -58,20 +58,6 @@ const lastUpdatedSchema = new Schema(
 
 const LastUpdated = mongoose.model('LastUpdated', lastUpdatedSchema);
 
-// Initialization function
-async function initializeLastUpdatedTracker() {
-  try {
-    const existingSettings = await LastUpdated.findOne();
-    if (!existingSettings) {
-      const newTracker = await LastUpdated.create({});
-      console.log('> Initialized LastUpdated tracker:', newTracker);
-    }
-  } catch (error) {
-    console.error('Error initializing LastUpdated tracker:', error);
-  }
-}
-
 module.exports = {
   LastUpdated,
-  initializeLastUpdatedTracker,
 };

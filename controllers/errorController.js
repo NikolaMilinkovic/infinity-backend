@@ -60,5 +60,4 @@ module.exports = (err, req, res, next) => {
     }
     prodErrors(res, err);
   }
-  Discord.logError(err, req);
 };

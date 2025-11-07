@@ -1,15 +1,17 @@
 const CustomError = require('../../utils/CustomError');
 const Purse = require('../../schemas/purse');
+const Boutique = require('../../schemas/boutiqueSchema');
 const PurseColor = require('../../schemas/purseColor');
-const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
+const ProductDisplayCounter = require('../../schemas/productDisplayCounter');
 const { uploadMediaToS3 } = require('../../utils/s3/S3DefaultMethods');
 const { betterErrorLog } = require('../../utils/logMethods');
-const { updateLastUpdatedField } = require('../../utils/helperMethods');
+const { updateLastUpdatedField, getBoutiqueId } = require('../../utils/helperMethods');
 const { writeToLog } = require('../../utils/s3/S3Methods');
 
 // ADD NEW PURSE
 exports.addPurse = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { name, category, stockType, price, colors, description, displayPriority, supplier } = req.body;
     let image;
     // Validate data
@@ -33,7 +35,8 @@ exports.addPurse = async (req, res, next) => {
 
     // Upload to S3
     if (req.file) {
-      image = await uploadMediaToS3(req.file, 'clients/infinity_boutique/images/products', next);
+      const boutique_data = await Boutique.findById(boutiqueId);
+      image = await uploadMediaToS3(req.file, `clients/${boutique_data.boutiqueName}/images/products`);
     }
 
     // Parse colors if they are a string
@@ -45,7 +48,7 @@ exports.addPurse = async (req, res, next) => {
     // Add all colors to the database
     const insertedColors = await PurseColor.insertMany(colorsArray);
     const colorIds = insertedColors.map((color) => color._id);
-    const counter = await ProductDisplayCounter.findOne();
+    const counter = await ProductDisplayCounter.findOne({ boutiqueId });
 
     // Calculate totalStock
     let totalStock = 0;
@@ -55,6 +58,7 @@ exports.addPurse = async (req, res, next) => {
 
     // Compose new Purse Object
     const newPurse = new Purse({
+      boutiqueId,
       name,
       category,
       stockType,
@@ -70,14 +74,13 @@ exports.addPurse = async (req, res, next) => {
     counter.high += 1;
     await counter.save();
     const result = await newPurse.save();
-    const populatedPurse = await Purse.findById(result._id).populate('colors');
+    const populatedPurse = await Purse.findOne({ _id: result._id, boutiqueId }).populate('colors');
 
     // Initiate socket updates
     const io = req.app.locals.io;
     if (io) {
-      await updateLastUpdatedField('purseLastUpdatedAt', io);
-      io.emit('activePurseAdded', populatedPurse);
-      io.emit('activeProductAdded', populatedPurse);
+      await updateLastUpdatedField('purseLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('activeProductAdded', populatedPurse);
     }
 
     res.status(200).json({ message: `Torbica sa imenom ${name} je uspešno dodata` });
@@ -101,7 +104,8 @@ exports.addPurse = async (req, res, next) => {
 
 exports.getAllActivePurses = async (req, res, next) => {
   try {
-    const purses = await Purse.find({ active: true }).populate('colors').sort({ displayPriority: -1 });
+    const boutiqueId = getBoutiqueId(req);
+    const purses = await Purse.find({ active: true, boutiqueId }).populate('colors').sort({ displayPriority: -1 });
     res.status(200).json(purses);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -114,7 +118,8 @@ exports.getAllActivePurses = async (req, res, next) => {
 
 exports.getAllInactivePurses = async (req, res, next) => {
   try {
-    const purses = await Purse.find({ active: false }).populate('colors').sort({ _id: -1 });
+    const boutiqueId = getBoutiqueId(req);
+    const purses = await Purse.find({ active: false, boutiqueId }).populate('colors').sort({ _id: -1 });
     res.status(200).json(purses);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -127,8 +132,9 @@ exports.getAllInactivePurses = async (req, res, next) => {
 
 exports.deletePurse = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { id } = req.params;
-    const purse = await Purse.findById(id);
+    const purse = await Purse.findOne({ _id: id, boutiqueId });
     if (!purse) {
       return next(new CustomError(`Proizvod sa ID: ${id} nije pronađen`, 404, req, { id: req.params.id }));
     }
@@ -139,7 +145,7 @@ exports.deletePurse = async (req, res, next) => {
     }
 
     // Delete the Purse object
-    const deletedPurse = await Purse.findByIdAndDelete(id);
+    const deletedPurse = await Purse.findOneAndDelete({ _id: id, boutiqueId });
     if (!deletedPurse) {
       return next(new CustomError(`Proizvod sa ID: ${id} nije pronađen`, 404, req));
     }
@@ -148,13 +154,11 @@ exports.deletePurse = async (req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       if (purse.active) {
-        await updateLastUpdatedField('purseLastUpdatedAt', io);
-        io.emit('activePurseRemoved', deletedPurse._id);
-        io.emit('activeProductRemoved', deletedPurse._id);
+        await updateLastUpdatedField('purseLastUpdatedAt', io, boutiqueId);
+        io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedPurse._id);
       } else {
         await updateLastUpdatedField('purseLastUpdatedAt', io);
-        io.emit('inactivePurseRemoved', deletedPurse._id);
-        io.emit('inactiveProductRemoved', deletedPurse._id);
+        io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedPurse._id);
       }
     }
 

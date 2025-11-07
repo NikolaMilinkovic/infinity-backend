@@ -4,6 +4,11 @@ const Schema = mongoose.Schema;
 const DressSchema = new Schema(
   {
     name: { type: String, required: [true, 'Item name is required'] },
+    boutiqueId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Boutique',
+      required: true,
+    },
     active: { type: Boolean, default: true },
     category: { type: String, required: [true, 'Category is required'] },
     stockType: { type: String, required: [true, 'Stock type is required'] },
@@ -21,6 +26,5 @@ const DressSchema = new Schema(
   { timestamps: true }
 );
 
-DressSchema.index({ active: 1 });
-
+DressSchema.index({ boutiqueId: 1, active: 1 });
 module.exports = mongoose.model('Dress', DressSchema);

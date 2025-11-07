@@ -2,13 +2,14 @@ const CustomError = require('../utils/CustomError');
 const Category = require('../schemas/category');
 const Color = require('../schemas/color');
 const { betterErrorLog } = require('../utils/logMethods');
-const { updateLastUpdatedField } = require('../utils/helperMethods');
+const { updateLastUpdatedField, getBoutiqueId } = require('../utils/helperMethods');
 const { writeToLog } = require('../utils/s3/S3Methods');
 
 // GET
 exports.getCategories = async (req, res, next) => {
   try {
-    const categories = await Category.find();
+    const boutiqueId = getBoutiqueId(req);
+    const categories = await Category.find({ boutiqueId });
     res.status(200).json(categories);
   } catch (error) {
     betterErrorLog('> Error while fetching categories:', error);
@@ -19,8 +20,12 @@ exports.getCategories = async (req, res, next) => {
 // ADD
 exports.addCategory = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { category } = req.body;
+    const categoryExists = await Category.findOne({ name: category.name, boutiqueId });
+    if (categoryExists) return res.status(409).json({ message: `Kategorija ${category.name} već postoji.` });
     const newCategory = new Category({
+      boutiqueId,
       name: category.name,
       stockType: category.stockType,
     });
@@ -28,8 +33,8 @@ exports.addCategory = async (req, res, next) => {
     const io = req.app.locals.io;
 
     if (io) {
-      updateLastUpdatedField('categoryLastUpdatedAt', io);
-      io.emit('categoryAdded', newCategory);
+      updateLastUpdatedField('categoryLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('categoryAdded', newCategory);
     }
 
     res.status(200).json({ message: `Kategorija ${category.name} je uspešno dodata`, category: newCategory });
@@ -51,8 +56,9 @@ exports.addCategory = async (req, res, next) => {
 // DELETE
 exports.deleteCategory = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { id } = req.params;
-    const deletedCategory = await Category.findByIdAndDelete(id);
+    const deletedCategory = await Category.findOneAndDelete({ _id: id, boutiqueId });
     if (!deletedCategory) {
       return next(new CustomError(`Kategorija sa ID: ${id} nije pronađena`, 404, req));
     }
@@ -60,8 +66,8 @@ exports.deleteCategory = async (req, res, next) => {
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if (io) {
-      updateLastUpdatedField('categoryLastUpdatedAt', io);
-      io.emit('categoryRemoved', deletedCategory._id);
+      updateLastUpdatedField('categoryLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('categoryRemoved', deletedCategory._id);
     }
 
     res.status(200).json({ message: `Kategorija ${deletedCategory.name} je uspešno obrisana`, color: deletedCategory });
@@ -78,15 +84,20 @@ exports.deleteCategory = async (req, res, next) => {
 // UPDATE
 exports.updateCategory = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { name, stockType } = req.body;
     const { id } = req.params;
-    const updatedCategory = await Category.findByIdAndUpdate(id, { name, stockType }, { new: true });
+    const updatedCategory = await Category.findOneAndUpdate(
+      { _id: id, boutiqueId },
+      { name, stockType },
+      { new: true }
+    );
 
     // Handle socket update
     const io = req.app.locals.io;
     if (io) {
-      updateLastUpdatedField('categoryLastUpdatedAt', io);
-      io.emit('categoryUpdated', updatedCategory);
+      updateLastUpdatedField('categoryLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('categoryUpdated', updatedCategory);
     }
 
     // Send a response

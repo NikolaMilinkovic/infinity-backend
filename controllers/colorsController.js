@@ -1,13 +1,14 @@
 const Color = require('../schemas/color');
 const CustomError = require('../utils/CustomError');
-const { betterErrorLog } = require('../utils/logMethods');
-const { updateLastUpdatedField } = require('../utils/helperMethods');
+const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
+const { updateLastUpdatedField, getBoutiqueId } = require('../utils/helperMethods');
 const { writeToLog } = require('../utils/s3/S3Methods');
 
 // GET ALL COLORS
 exports.getColors = async (req, res, next) => {
   try {
-    const colors = await Color.find();
+    const boutiqueId = getBoutiqueId(req);
+    const colors = await Color.find({ boutiqueId });
     res.status(200).json(colors);
   } catch (error) {
     betterErrorLog('> Error getting all colors:', error);
@@ -18,8 +19,12 @@ exports.getColors = async (req, res, next) => {
 // ADD NEW COLOR
 exports.addColor = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { color } = req.body;
+    const colorExists = await Color.findOne({ name: color.name, boutiqueId });
+    if (colorExists) return res.status(409).json({ message: `${color.name} boja već postoji.` });
     const newColor = new Color({
+      boutiqueId,
       name: color.name,
       colorCode: '#68e823',
     });
@@ -27,8 +32,8 @@ exports.addColor = async (req, res, next) => {
     const addedColor = await newColor.save();
     const io = req.app.locals.io;
     if (io) {
-      updateLastUpdatedField('colorLastUpdatedAt', io);
-      io.emit('colorAdded', newColor);
+      updateLastUpdatedField('colorLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('colorAdded', newColor);
     }
 
     res.status(200).json({ message: `${color.name} boja je uspešno dodata`, color: newColor });
@@ -36,12 +41,6 @@ exports.addColor = async (req, res, next) => {
   } catch (error) {
     // Handle mongo error response
     const mongoErrCode = error?.cause?.code;
-    if (error.code === 11000 || mongoErrCode === 11000) {
-      return next(
-        new CustomError(`${error?.cause?.keyValue?.name} boja već postoji`, 409, req, { color: req.body.color })
-      );
-    }
-
     betterErrorLog(`> Error adding a new color:`, error);
     const statusCode = error.statusCode || 500;
     return next(
@@ -57,13 +56,14 @@ exports.updateColor = async (req, res, next) => {
   try {
     const { name, colorCode } = req.body;
     const { id } = req.params;
-    const updatedColor = await Color.findByIdAndUpdate(id, { name, colorCode }, { new: true });
+    const boutiqueId = getBoutiqueId(req);
+    const updatedColor = await Color.findOneAndUpdate({ _id: id, boutiqueId }, { name, colorCode }, { new: true });
 
     // Handle socket update
     const io = req.app.locals.io;
     if (io) {
-      updateLastUpdatedField('colorLastUpdatedAt', io);
-      io.emit('colorUpdated', updatedColor);
+      updateLastUpdatedField('colorLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('colorUpdated', updatedColor);
     }
 
     // Optionally, send a response
@@ -89,7 +89,8 @@ exports.updateColor = async (req, res, next) => {
 exports.deleteColor = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deletedColor = await Color.findByIdAndDelete(id);
+    const boutiqueId = getBoutiqueId(req);
+    const deletedColor = await Color.findOneAndDelete({ _id: id, boutiqueId });
     if (!deletedColor) {
       return next(new CustomError(`Boja sa ID: ${id} nije pronadjena`, 404, req, { id: req.params.id }));
     }
@@ -97,8 +98,8 @@ exports.deleteColor = async (req, res, next) => {
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if (io) {
-      updateLastUpdatedField('colorLastUpdatedAt', io);
-      io.emit('colorRemoved', deletedColor._id);
+      updateLastUpdatedField('colorLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('colorRemoved', deletedColor._id);
     }
 
     res.status(200).json({ message: `${deletedColor.color} boja je uspešno obrisana`, color: deletedColor });

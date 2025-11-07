@@ -2,17 +2,20 @@ const CustomError = require('../utils/CustomError');
 const { betterErrorLog, betterConsoleLog } = require('../utils/logMethods');
 const { decodeUserIdFromToken } = require('../utils/decodeUserIdFromToken');
 const User = require('../schemas/user');
+const Boutique = require('../schemas/boutiqueSchema');
 const bcrypt = require('bcryptjs');
 const { addLogFileForNewUser, renameUserLogFile } = require('../utils/s3/S3Methods');
 const { writeToLog } = require('../utils/s3/S3Methods');
+const { getBoutiqueId, updateLastUpdatedField } = require('../utils/helperMethods');
 
 exports.getUserData = async (req, res, next) => {
   try {
     const userId = decodeUserIdFromToken(req.headers.authorization);
     const user = await User.findById(userId);
     let usersList = [];
+    const boutiqueId = getBoutiqueId(req);
     if (user.role === 'admin' && user.permissions.navigation.upravljanje_korisnicima) {
-      usersList = await User.find();
+      usersList = await User.find({ boutiqueId });
     }
 
     res.status(200).json({
@@ -42,6 +45,8 @@ exports.addUser = async (req, res, next) => {
     const permissions = userData.permissions;
     const existingUser = await User.findOne({ username });
     const pushToken = '';
+    const boutiqueId = getBoutiqueId(req);
+    const user_boutique = await Boutique.findById(boutiqueId);
 
     if (!existingUser) {
       const salt = await bcrypt.genSalt(10);
@@ -58,13 +63,15 @@ exports.addUser = async (req, res, next) => {
           listProductsBy: 'category',
           language: 'srb',
         },
+        boutiqueId,
       });
 
       const addedUser = await newUser.save();
-      await addLogFileForNewUser(addedUser);
+      await addLogFileForNewUser(addedUser, user_boutique.boutiqueName);
 
       const io = req.app.locals.io;
-      io.emit('addUser', addedUser);
+      await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('addUser', addedUser);
       res.status(200).json({ message: 'Korisnik uspešno dodat' });
       await writeToLog(req, `[USERS] Added a new user ${addedUser._id} | ${addedUser.username}.`);
     } else {
@@ -79,9 +86,12 @@ exports.addUser = async (req, res, next) => {
 exports.updateUserSettings = async (req, res, next) => {
   try {
     const userId = decodeUserIdFromToken(req.headers.authorization);
-    const user = await User.findById(userId);
+    const boutiqueId = getBoutiqueId(req);
+    const user = await User.findOne({ _id: userId, boutiqueId });
     user.settings.defaults = req.body.defaults;
     await user.save();
+    const io = req.app.locals.io;
+    await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
     res.status(200).json({ message: 'Podešavanja uspešno ažurirana' });
     await writeToLog(req, `[USERS] Updated his user settings.`);
   } catch (error) {
@@ -93,8 +103,8 @@ exports.updateUserSettings = async (req, res, next) => {
 exports.updateUser = async (req, res, next) => {
   try {
     const userData = req.body.user;
-    betterConsoleLog('> User data: ', userData);
-    const user = await User.findById(userData._id);
+    const boutiqueId = getBoutiqueId(req);
+    const user = await User.findOne({ _id: userData._id, boutiqueId });
     if (user) {
       let hashedPassword;
       if (user.password !== userData.password) {
@@ -103,7 +113,8 @@ exports.updateUser = async (req, res, next) => {
         user.password = hashedPassword;
       }
       if (user.username !== userData.username) {
-        await renameUserLogFile(user._id, user.username, userData.username);
+        const user_boutique = await Boutique.findById(userData.boutiqueId);
+        await renameUserLogFile(user._id, user.username, userData.username, user_boutique.boutiqueName);
         user.username = userData.username;
       }
       if (user.name !== userData.name) user.name = userData.name;
@@ -114,7 +125,8 @@ exports.updateUser = async (req, res, next) => {
       const authHeader = req.headers['authorization'];
       const receivedToken = authHeader && authHeader.split(' ')[1];
       const io = req.app.locals.io;
-      io.emit('updateUser', updatedUser, receivedToken);
+      await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('updateUser', updatedUser, receivedToken);
       res.status(200).json({ message: 'Korisnik uspešno ažuriran' });
 
       await writeToLog(req, `[USERS] Updated a user [${user._id}] with username: [${user.username}].`);
@@ -130,15 +142,15 @@ exports.updateUser = async (req, res, next) => {
 exports.removeUser = async (req, res, next) => {
   try {
     const userId = req.body.userId;
-    const deletedUser = await User.findOneAndDelete({ _id: userId });
-
+    const boutiqueId = getBoutiqueId(req);
+    const deletedUser = await User.findOneAndDelete({ _id: userId, boutiqueId });
     if (!deletedUser) {
       return res.status(404).json({ message: 'ERROR: Korisnik nije pronađen' });
     }
     const io = req.app.locals.io;
-    io.emit('removeUser', userId);
+    await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
+    io.to(`boutique-${boutiqueId}`).emit('removeUser', userId);
     res.status(200).json({ message: 'Korisnik je uspešno obrisan' });
-
     await writeToLog(req, `[USERS] Removed a user [${deletedUser._id}] with username: [${deletedUser.username}].`);
   } catch (error) {
     betterErrorLog('> Error while updating user data:', error);
@@ -149,17 +161,34 @@ exports.removeUser = async (req, res, next) => {
 exports.updateUserPushToken = async (req, res, next) => {
   try {
     const userId = decodeUserIdFromToken(req.headers.authorization);
-    const user = await User.findById(userId);
+    const boutiqueId = getBoutiqueId(req);
+    const user = await User.findOne({ _id: userId, boutiqueId });
     const pushToken = req.body.expoPushToken;
-    console.log('> Received push token:', pushToken);
-
     user.pushToken = pushToken;
     await user.save();
-
+    const io = req.app.locals.io;
+    await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
     res.status(200).json({ message: 'Push token uspešno ažuriran' });
     await writeToLog(req, `[USERS] User [${userId}] updated his expo push token to [${pushToken}].`);
   } catch (error) {
     betterErrorLog('> Error while updating user push token:', error);
+    return next(new CustomError('Došlo je do problema prilikom ažuriranja podataka o push tokenu', 500, req));
+  }
+};
+
+exports.resetUserPushToken = async (req, res, next) => {
+  try {
+    const userId = decodeUserIdFromToken(req.headers.authorization);
+    const boutiqueId = getBoutiqueId(req);
+    const user = await User.findOne({ _id: userId, boutiqueId });
+    user.pushToken = '';
+    await user.save();
+    const io = req.app.locals.io;
+    await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
+    res.status(200);
+    await writeToLog(req, `[USERS] User [${userId}] reset his push token upon logout.`);
+  } catch (error) {
+    betterErrorLog('> Error while resetting user push token:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja podataka o push tokenu', 500, req));
   }
 };

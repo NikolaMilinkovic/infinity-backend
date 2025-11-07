@@ -3,7 +3,6 @@ const PurseColor = require('../schemas/purseColor');
 const CustomError = require('./CustomError');
 const mongoose = require('mongoose');
 const { betterConsoleLog, betterErrorLog } = require('./logMethods');
-const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
 
 async function purseColorStockHandler(colorId, operation, value = 1, next) {
   try {
@@ -38,25 +37,61 @@ async function purseColorStockHandler(colorId, operation, value = 1, next) {
 }
 
 /**
- * @param {Array<Object>} pursesArr - Array of objects with neccessary data for purse update
+ * Updates stock for multiple purse colors and their parent purses in bulk.
+ *
+ * @param {Array<Object>} pursesArr - Array of objects with necessary data for purse update.
  * Each object contains:
- * - orderId: string
- * - colorId: string
- * - increment: number
- * @param {String} operation - can either be increment | decrement
- * @param {Function} next - callback function for error handling
- * @returns {Promise} - A promise resolving to the updated stock levels or an error.
+ *   - purseId: string - The parent purse document ID
+ *   - colorId: string - The specific color ID to update
+ *   - increment: number - The amount to increment/decrement stock
+ * @param {String} boutiqueId - The boutique this stock belongs to
+ * @param {String} operation - 'increment' or 'decrement'
+ * @param {Function} next - Callback function for error handling
+ * @returns {Promise} - Resolves to true if update succeeds, or calls next with an error
+ *
+ * Behavior:
+ * 1. Updates the stock of each color in `PurseColor` according to the operation and increment.
+ * 2. Calculates total delta per parent purse and updates `totalStock` on `Purse`.
+ * 3. Handles multiple quantities correctly, summing increments/decrements for the same parent.
  */
-async function purseBatchColorStockHandler(pursesArr, operation, next) {
+async function purseBatchColorStockHandler(pursesArr, boutiqueId, operation, next) {
   try {
+    // Update the color amount
     const operations = pursesArr.map((item) => ({
       updateOne: {
-        filter: { _id: new mongoose.Types.ObjectId(`${item.colorId}`) },
+        filter: {
+          _id: new mongoose.Types.ObjectId(`${item.colorId}`),
+        },
         update: { $inc: { stock: operation === 'increment' ? item.increment : -item.increment } },
       },
     }));
 
-    return await PurseColor.collection.bulkWrite(operations);
+    await PurseColor.collection.bulkWrite(operations);
+
+    // Increment / Decrement totalStock
+    const totalStockMap = {};
+    for (const item of pursesArr) {
+      const id = item.purseId;
+      const inc = operation === 'increment' ? item.increment : -item.increment;
+      totalStockMap[id] = (totalStockMap[id] || 0) + inc;
+    }
+
+    // Update totalStock for each purse
+    const updateOps = Object.entries(totalStockMap).map(([purseId, delta]) => ({
+      updateOne: {
+        filter: {
+          _id: new mongoose.Types.ObjectId(`${purseId}`),
+          boutiqueId: new mongoose.Types.ObjectId(`${boutiqueId}`),
+        },
+        update: { $inc: { totalStock: delta } },
+      },
+    }));
+
+    if (updateOps.length > 0) {
+      await Purse.collection.bulkWrite(updateOps);
+    }
+
+    return true;
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error updating purse batch stock:', error);
@@ -64,9 +99,9 @@ async function purseBatchColorStockHandler(pursesArr, operation, next) {
   }
 }
 
-async function updatePurseActiveStatus(purseId) {
+async function updatePurseActiveStatus(purseId, boutiqueId) {
   // Check if any color has stock greater than 0
-  const purse = await Purse.findById(purseId).populate('colors');
+  const purse = await Purse.findOne({ _id: purseId, boutiqueId }).populate('colors');
   if (!purse) {
     throw new Error('Purse not found for id ' + purseId);
   }
@@ -83,8 +118,11 @@ async function updatePurseActiveStatus(purseId) {
   return purse;
 }
 
-async function removePurseById(purseId, req) {
-  const purse = await Purse.findById(purseId).populate('colors');
+async function removePurseById(purseId, boutiqueId, req, next) {
+  if (!purseId || !boutiqueId) {
+    throw new Error(`Purse [${purseId}] or Boutique [${boutiqueId}] ID not provided `);
+  }
+  const purse = await Purse.findOne({ _id: purseId, boutiqueId }).populate('colors');
   if (!purse) {
     throw new Error('Purse not found for id ' + purseId);
   }
@@ -94,12 +132,8 @@ async function removePurseById(purseId, req) {
     await PurseColor.findByIdAndDelete(colorId);
   }
 
-  // Delete image from s3 bucket
-  // Ovo ne radimo zato sto ce svi orderi da izgube sliku proizvoda!!!
-  // await deleteMediaFromS3(purse.image.imageName);
-
   // Delete the Purse object
-  const deletedPurse = await Purse.findByIdAndDelete(purseId);
+  const deletedPurse = await Purse.findOneAndDelete({ _id: purseId, boutiqueId });
   if (!deletedPurse) {
     return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));
   }
@@ -108,11 +142,9 @@ async function removePurseById(purseId, req) {
   const io = req.app.locals.io;
   if (io) {
     if (purse.active) {
-      io.emit('activePurseRemoved', deletedPurse._id);
-      io.emit('activeProductRemoved', deletedPurse._id);
+      io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedPurse._id);
     } else {
-      io.emit('inactivePurseRemoved', deletedPurse._id);
-      io.emit('inactiveProductRemoved', deletedPurse._id);
+      io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedPurse._id);
     }
   }
 

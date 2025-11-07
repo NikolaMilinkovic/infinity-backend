@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const Order = require('../../schemas/order');
 const { getDayStartEndTimeForTimezone } = require('../../utils/dateMethods');
-const sendNotificationToAll = require('../../utils/notifications/sendNotificationToAll');
+const { sendNotificationToBoutique } = require('../../utils/notifications/sendMethods');
+const { betterErrorLog } = require('../../utils/logMethods');
 
 /**
  * Checks all reservations in database, counts those that are due for today
@@ -10,17 +11,30 @@ const sendNotificationToAll = require('../../utils/notifications/sendNotificatio
 const startReservationsCheck = () => {
   async function task() {
     try {
-      const date = getDayStartEndTimeForTimezone('Europe/Belgrade', 1);
-      const orders = await Order.find({
-        reservation: true,
-        reservationDate: {
-          $gte: date.startOfDay,
-          $lt: date.endOfDay,
+      const date = getDayStartEndTimeForTimezone('Europe/Belgrade', 0);
+      const ordersByBoutique = await Order.aggregate([
+        {
+          $match: {
+            reservation: true,
+            reservationDate: {
+              $gte: date.startOfDay,
+              $lt: date.endOfDay,
+            },
+          },
         },
-      });
-      sendNotificationToAll('🛍️ Rezervacije za danas!', `Ukupno: ${orders.length}`);
+        {
+          $group: {
+            _id: '$boutiqueId',
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      for (const item of ordersByBoutique) {
+        await sendNotificationToBoutique(item._id, '🛍️ Rezervacije za danas!', `Ukupno: ${item.count}`);
+      }
     } catch (error) {
-      betterErrorLog('> Error in startReservationsCheck:', error);
+      betterErrorLog('> Error in startReservationsCheckTest:', error);
     }
   }
 
@@ -36,20 +50,32 @@ const startReservationsCheck = () => {
 const startReservationsCheckTest = () => {
   setTimeout(async () => {
     try {
-      const date = getDayStartEndTimeForTimezone('Europe/Belgrade', 1);
-      const orders = await Order.find({
-        reservation: true,
-        reservationDate: {
-          $gte: date.startOfDay,
-          $lt: date.endOfDay,
+      const date = getDayStartEndTimeForTimezone('Europe/Belgrade', 0);
+      const ordersByBoutique = await Order.aggregate([
+        {
+          $match: {
+            reservation: true,
+            reservationDate: {
+              $gte: date.startOfDay,
+              $lt: date.endOfDay,
+            },
+          },
         },
-      });
+        {
+          $group: {
+            _id: '$boutiqueId',
+            count: { $sum: 1 },
+          },
+        },
+      ]);
 
-      sendNotificationToAll('🛍️ Rezervacije za danas! (TEST)', `Ukupno: ${orders.length}`);
+      for (const item of ordersByBoutique) {
+        await sendNotificationToBoutique(item._id, '🛍️ Rezervacije za danas!', `Ukupno: ${item.count}`);
+      }
     } catch (error) {
       betterErrorLog('> Error in startReservationsCheckTest:', error);
     }
-  }, 10_000); // 10 seconds
+  }, 7_000); // 7 seconds
 };
 
 module.exports = {

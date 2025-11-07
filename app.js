@@ -6,15 +6,11 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const authModule = require('./middleware/authMiddleware')();
-const { initializeProductDisplayCounter } = require('./schemas/productDisplayCounter');
-const { initializeLastUpdatedTracker } = require('./schemas/lastUpdated');
 
 const app = express();
 
 // ===============[ CORS Options ]=============== //
 app.use(cors());
-// const allowedOrigins = [
-// ];
 
 // const corsOptions = {
 //   origin: function (origin, callback) {
@@ -45,16 +41,9 @@ authModule.initializeAuth(app);
 
 // ===============[ MongoDB connection ]=============== //
 const conn_string = process.env.DB_URL;
-mongoose
-  .connect(conn_string)
-  .then(() => {
-    initializeAppSettings();
-    initializeProductDisplayCounter();
-    initializeLastUpdatedTracker();
-  })
-  .catch((error) => {
-    betterErrorLog('> MongoDB connection error', error);
-  });
+mongoose.connect(conn_string).catch((error) => {
+  betterErrorLog('> MongoDB connection error', error);
+});
 const database = mongoose.connection;
 if (database) {
   console.log('> Connected to Database');
@@ -62,51 +51,51 @@ if (database) {
 database.on('error', console.error.bind(console, '> MongoDB connection error'));
 // ===============[ \MongoDB connection ]=============== //
 
-// Call seedPurses on server start, creates 1000 purse
-// const { seedPurses } = require('./utils/testDummyData');
-// mongoose.connection.once('open', async () => {
-// await seedPurses(1000);
-// });
+const { isAdmin } = require('./utils/helperMethods');
 
-// Create 100 fake orders on startup
-// const { createFakeOrders } = require('./utils/fakeOrdersSeeder');
-// createFakeOrders();
-
-// Example usage of adding new user on startup
-// const { addUserOnStartup } = require('./utils/helperMethods');
-// addUserOnStartup('Nikola', 'Nikola');
+// =====================[ APP TRANSITION UPDATE METHODS ]======================
+/**
+ * Updates all the colors with boutique id that we pass to the method
+ */
 const {
-  updateProductsWithNewFields,
-  updateAllUsersWithNewFields,
-  updateTotalDressStock,
-  updateTotalPurseStock,
-  updateUserPermissions,
-} = require('./utils/updateAllOnStartup');
+  updateAllColorsWithBoutiqueId,
+  updateAllCouriersWithBoutiqueId,
+  updateAllSuppliersWithBoutiqueId,
+  updateAllCategoriesWithBoutiqueId,
+  updateAllUsersWithBoutiqueId,
+  updateAllUsersWithFirstTimeSetupField,
+  updateAllDressesWithBoutiqueId,
+  updateAllPursesWithBoutiqueId,
+  updateAllProductDisplayCountersWithBoutiqueId,
+  updateAllOrdersWithBoutiqueId,
+  updateAllProcessedOrdersForPeriodWithBoutiqueId,
+  updateAllBoutiquesWithRequireBuyerImageField,
+  ensureVersionDocument,
+  createInitialBoutique,
+} = require('./utils/app_transition_data_updates/databaseUpdateMethods');
+// ========================[DONE]========================
+// createInitialBoutique();
+// updateAllUsersWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllColorsWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllCouriersWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllSuppliersWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllCategoriesWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllUsersWithFirstTimeSetupField();
+// updateAllDressesWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllPursesWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllProductDisplayCountersWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllOrdersWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllProcessedOrdersForPeriodWithBoutiqueId('690e77a3240e6e923096fd7c');
+// updateAllBoutiquesWithRequireBuyerImageField();
+// ========================[DONE]========================
 
-// Adds permissions
-// updateUserPermissions();
+ensureVersionDocument();
 
+// const { updateTotalDressStock, updateTotalPurseStock } = require('./utils/updateAllOnStartup');
+// Potrebno je recalc sve total stock
 // updateTotalDressStock();
 // updateTotalPurseStock();
-
-// Script that goes through all users and adds them the missing fields
-// Doesnt rewrite the currently set fields, it skips them
-// Only adds the missing ones
-// updateAllUsersWithNewFields();
-// updateProductsWithNewFields();
-const { ensureLastUpdatedDocument, ensureAppSettingsDocument } = require('./utils/helperMethods');
-ensureLastUpdatedDocument();
-
-// const { getSumOfAllProducts } = require('./utils/helperMethods');
-// getSumOfAllProducts();
-
-// curl http://localhost:3000/test_discord_error_log
-// app.use('/test_discord_error_log', (req, res, next) => {
-//   const { Discord } = require('./utils/discord/infinityErrorBot');
-//   const fakeError = new Error('This is a test error from the app 🚧');
-//   Discord.logError(fakeError, req);
-//   return res.send('OK');
-// });
+// =====================[ /APP TRANSITION UPDATE METHODS ]=====================
 
 // =====================[ NODE-CRON SCHEDULERS ]=====================
 const startAllSchedulers = require('./schedulers/scheduler');
@@ -115,7 +104,6 @@ startAllSchedulers();
 
 // =====================[ UNPROTECTED ROUTES ]=====================
 app.post('/login', authModule.login);
-// app.post('/verify-user', authModule.verifyUser);
 // =====================[ \UNPROTECTED ROUTES ]=====================
 
 // =====================[ PROTECTED ROUTERS ]======================
@@ -147,11 +135,16 @@ app.use('/suppliers', suppliersRouter);
 
 const lastUpdatedRouter = require('./routers/updatesTracker');
 app.use('/last-updated', lastUpdatedRouter);
+
 // =====================[ \PROTECTED ROUTERS ]=====================
+
+// =====================[ ADMIN ROUTE ]======================
+const adminRouter = require('./routers/admin');
+app.use('/admin', isAdmin, adminRouter);
+// =====================[ \ADMIN ROUTE ]=====================
 
 // =====================[ ERROR HANDLERS ]======================
 const errorHandler = require('./controllers/errorController');
-const { initializeAppSettings } = require('./schemas/appSchema');
 const { betterErrorLog } = require('./utils/logMethods');
 app.use(errorHandler);
 // =====================[ \ERROR HANDLERS ]=====================

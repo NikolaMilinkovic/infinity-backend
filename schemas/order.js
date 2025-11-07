@@ -3,6 +3,11 @@ const Schema = mongoose.Schema;
 
 const OrderSchema = new Schema(
   {
+    boutiqueId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Boutique',
+      required: true,
+    },
     buyer: {
       name: { type: String, required: [true, 'Buyer name is required'] },
       address: { type: String, required: [true, 'Buyer address is required'] },
@@ -11,8 +16,8 @@ const OrderSchema = new Schema(
       phone2: { type: String, required: false }, // NEW
       bankNumber: { type: String, required: false }, // NEW
       profileImage: {
-        uri: { type: String, required: [true, 'Image is required'] },
-        imageName: { type: String, require: [true, 'Image Name is required'] },
+        uri: { type: String, required: false },
+        imageName: { type: String, require: false },
       },
     },
     products: [
@@ -58,9 +63,9 @@ const OrderSchema = new Schema(
 );
 
 OrderSchema.path('createdAt').immutable(false);
-OrderSchema.index({ reservation: 1 });
-OrderSchema.index({ processed: 1 });
-OrderSchema.index({ packed: 1 });
-OrderSchema.index({ processed: 1, reservation: 1, 'courier.name': 1 });
+OrderSchema.index({ boutiqueId: 1, reservation: 1 });
+OrderSchema.index({ boutiqueId: 1, processed: 1 });
+OrderSchema.index({ boutiqueId: 1, packed: 1 });
+OrderSchema.index({ boutiqueId: 1, processed: 1, reservation: 1, 'courier.name': 1 });
 
 module.exports = mongoose.model('Order', OrderSchema);

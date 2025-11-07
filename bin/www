@@ -17,9 +17,15 @@ const { writeToLog } = require('../utils/s3/S3Methods');
 const app = require('../app');
 const debug = require('debug')('infinity-backend:server');
 const http = require('http');
-const { validateLastUpdated, getLastUpdated, getUpdatedMismatchedData } = require('../utils/helperMethods');
+const {
+  validateLastUpdated,
+  getLastUpdated,
+  getUpdatedMismatchedData,
+  getBoutiqueId,
+} = require('../utils/helperMethods');
 const User = require('../schemas/user');
 const jwt = require('jsonwebtoken');
+const auth = require('../middleware/authMiddleware')();
 
 /**
  * Get port from environment and store in Express.
@@ -54,11 +60,14 @@ io.on('connection', async (socket) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.userId);
 
-        if (user) {
-          console.log(`> User connected: ${user.username} [${user._id}]`);
-          await writeToLog({}, `[SOCKET] Connected to the server.`, token);
+        if (user.boutiqueId) {
+          const room = `boutique-${user.boutiqueId}`;
+          socket.join(room);
+          console.log(`> User ${user.username} [${user._id}] joined room: ${room}`);
+          await writeToLog({}, `[SOCKET] Connected to the server into room ${room}`, token);
         } else {
-          console.log(`> Invalid token user tried to connect: ${socket.id}`);
+          console.log(`> User ${user.username} [${user._id}] connected (no boutiqueId)`);
+          await writeToLog({}, `[SOCKET] Connected to the server but no boutique room!`, token);
         }
       } catch (err) {
         console.log(`> Socket auth error: ${err.message}`);
@@ -88,6 +97,9 @@ io.on('connection', async (socket) => {
         const user = await User.findById(decoded.userId);
 
         if (user) {
+          const room = `boutique-${user.boutiqueId}`;
+          socket.leave(room);
+          console.log(`> User ${user.username} [${user._id}] left room: ${room}`);
           await writeToLog({}, `[SOCKET] Disconnected from server. Reason: [${reason}]`, token);
         }
       } catch (err) {
@@ -113,13 +125,15 @@ io.on('connection', async (socket) => {
 // Handles sending the missing data to the client
 async function handleLastUpdatedValidation(data, socket) {
   try {
-    const validationResult = await validateLastUpdated(data);
-    const lastUpdated = await getLastUpdated();
+    const user = await auth.getUserFromToken(socket.handshake.auth.token);
+    if (!user) return;
+    const lastUpdated = await getLastUpdated(user.boutiqueId);
+    const validationResult = await validateLastUpdated(data, lastUpdated);
     let updatedData;
     let responseData;
 
     if (validationResult.isEqual === false) {
-      updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys);
+      updatedData = await getUpdatedMismatchedData(validationResult.mismatchedKeys, user.boutiqueId);
       responseData = {
         isSynced: false,
         lastUpdated,

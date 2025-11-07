@@ -4,6 +4,11 @@ const Schema = mongoose.Schema;
 const PurseSchema = new Schema(
   {
     name: { type: String, required: [true, 'Item name is required'] },
+    boutiqueId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Boutique',
+      required: true,
+    },
     active: { type: Boolean, default: true },
     category: { type: String, required: [true, 'Category is required'] },
     stockType: { type: String, required: [true, 'Stock type is required'] },
@@ -21,6 +26,5 @@ const PurseSchema = new Schema(
   { timestamps: true }
 );
 
-PurseSchema.index({ active: 1 });
-
+PurseSchema.index({ boutiqueId: 1, active: 1 });
 module.exports = mongoose.model('Purse', PurseSchema);

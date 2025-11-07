@@ -1,15 +1,17 @@
 const CustomError = require('../../utils/CustomError');
 const Dress = require('../../schemas/dress');
+const Boutique = require('../../schemas/boutiqueSchema');
 const DressColor = require('../../schemas/dressColor');
-const { ProductDisplayCounter } = require('../../schemas/productDisplayCounter');
+const ProductDisplayCounter = require('../../schemas/productDisplayCounter');
 const { uploadMediaToS3 } = require('../../utils/s3/S3DefaultMethods');
 const { betterErrorLog } = require('../../utils/logMethods');
-const { updateLastUpdatedField } = require('../../utils/helperMethods');
+const { updateLastUpdatedField, getBoutiqueId } = require('../../utils/helperMethods');
 const { writeToLog } = require('../../utils/s3/S3Methods');
 
 // ADD NEW DRESS
 exports.addDress = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { name, category, stockType, price, colors, description, supplier } = req.body;
     let image;
     if (!name || !category || !price || !stockType || colors.length === 0 || !req.file)
@@ -26,7 +28,8 @@ exports.addDress = async (req, res, next) => {
 
     // Upload to S3
     if (req.file) {
-      image = await uploadMediaToS3(req.file, 'clients/infinity_boutique/images/products', next);
+      const boutique_data = await Boutique.findById(boutiqueId);
+      image = await uploadMediaToS3(req.file, `clients/${boutique_data.boutiqueName}/images/products`);
     }
 
     // Parse colors if they are a string
@@ -47,6 +50,7 @@ exports.addDress = async (req, res, next) => {
     }
 
     const newDress = new Dress({
+      boutiqueId,
       name,
       category,
       stockType,
@@ -62,12 +66,11 @@ exports.addDress = async (req, res, next) => {
     await counter.save();
 
     const result = await newDress.save();
-    const populatedDress = await Dress.findById(result._id).populate('colors');
+    const populatedDress = await Dress.findOne({ _id: result._id, boutiqueId }).populate('colors');
     const io = req.app.locals.io;
     if (io) {
-      await updateLastUpdatedField('dressLastUpdatedAt', io);
-      io.emit('activeDressAdded', populatedDress);
-      io.emit('activeProductAdded', populatedDress);
+      await updateLastUpdatedField('dressLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('activeProductAdded', populatedDress);
     }
 
     res.status(200).json({ message: `Haljina sa imenom ${name} je uspešno dodata` });
@@ -84,7 +87,8 @@ exports.addDress = async (req, res, next) => {
 // GET ACTIVE DRESSES
 exports.getAllActiveDresses = async (req, res, next) => {
   try {
-    const dresses = await Dress.find({ active: true }).populate('colors').sort({ displayPriority: -1 });
+    const boutiqueId = getBoutiqueId(req);
+    const dresses = await Dress.find({ active: true, boutiqueId }).populate('colors').sort({ displayPriority: -1 });
     res.status(200).json(dresses);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -98,7 +102,8 @@ exports.getAllActiveDresses = async (req, res, next) => {
 // GET INACTIVE DRESSES
 exports.getAllInactiveDresses = async (req, res, next) => {
   try {
-    const dresses = await Dress.find({ active: false }).populate('colors').sort({ _id: -1 });
+    const boutiqueId = getBoutiqueId(req);
+    const dresses = await Dress.find({ active: false, boutiqueId }).populate('colors').sort({ _id: -1 });
     res.status(200).json(dresses);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -112,8 +117,9 @@ exports.getAllInactiveDresses = async (req, res, next) => {
 // DELETE A DRESS
 exports.deleteDress = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { id } = req.params;
-    const dress = await Dress.findById(id);
+    const dress = await Dress.findOne({ _id: id, boutiqueId });
     if (!dress) {
       return next(new CustomError(`Haljina sa ID: ${id} nije pronađena`, 404, req));
     }
@@ -124,7 +130,7 @@ exports.deleteDress = async (req, res, next) => {
     }
 
     // Delete the Dress object
-    const deletedDress = await Dress.findByIdAndDelete(id);
+    const deletedDress = await Dress.findOneAndDelete({ _id: id, boutiqueId });
     if (!deletedDress) {
       return next(new CustomError(`Haljina sa ID: ${id} nije pronađena`, 404, req, { id: req.params.id }));
     }
@@ -133,13 +139,11 @@ exports.deleteDress = async (req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       if (dress.active) {
-        io.emit('activeDressRemoved', deletedDress._id);
-        io.emit('activeProductRemoved', deletedDress._id);
+        io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedDress._id);
       } else {
-        io.emit('inactiveDressRemoved', deletedDress._id);
-        io.emit('inactiveProductRemoved', deletedDress._id);
+        io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedDress._id);
       }
-      await updateLastUpdatedField('dressLastUpdatedAt', io);
+      await updateLastUpdatedField('dressLastUpdatedAt', io, boutiqueId);
     }
 
     res

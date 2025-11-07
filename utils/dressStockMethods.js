@@ -2,8 +2,7 @@ const Dress = require('../schemas/dress');
 const DressColor = require('../schemas/dressColor');
 const mongoose = require('mongoose');
 const CustomError = require('./CustomError');
-const { betterErrorLog } = require('./logMethods');
-const { deleteMediaFromS3 } = require('./s3/S3DefaultMethods');
+const { betterErrorLog, betterConsoleLog } = require('./logMethods');
 
 async function dressColorStockHandler(colorId, sizeId, operation, value = 1, next) {
   try {
@@ -44,17 +43,25 @@ async function dressColorStockHandler(colorId, sizeId, operation, value = 1, nex
 }
 
 /**
- * @param {Array<Object>} dressesArr - Array of objects with neccessary data for dress update
+ * Updates stock for multiple dress sizes and their parent dresses in bulk.
+ *
+ * @param {Array<Object>} dressesArr - Array of objects with necessary data for dress update.
  * Each object contains:
- * - dressId: string
- * - colorId: string
- * - sizeId: string
- * - increment: number
- * @param {String} operation - can either be increment | decrement
- * @param {Function} next - callback function for error handling
- * @returns {Promise} - A promise resolving to the updated stock levels or an error.
+ *   - dressId: string - The parent dress document ID
+ *   - colorId: string - The color ID to update
+ *   - sizeId: string - The size ID to update
+ *   - increment: number - The amount to increment/decrement stock
+ * @param {String} boutiqueId - The boutique this stock belongs to
+ * @param {String} operation - 'increment' or 'decrement'
+ * @param {Function} next - Callback function for error handling
+ * @returns {Promise} - Resolves to true if update succeeds, or calls next with an error
+ *
+ * Behavior:
+ * 1. Updates the stock of each size in `DressColor`.
+ * 2. Calculates total delta per parent dress and updates `totalStock` on `Dress`.
+ * 3. Handles multiple quantities correctly, summing increments/decrements for the same parent.
  */
-async function dressBatchColorStockHandler(dressesArr, operation, next) {
+async function dressBatchColorStockHandler(dressesArr, boutiqueId, operation, next) {
   try {
     const operations = dressesArr.map((item) => ({
       updateOne: {
@@ -66,7 +73,32 @@ async function dressBatchColorStockHandler(dressesArr, operation, next) {
       },
     }));
 
-    return await DressColor.collection.bulkWrite(operations);
+    await DressColor.collection.bulkWrite(operations);
+
+    // Compute total delta per parent dress
+    const totalStockMap = {};
+    for (const item of dressesArr) {
+      const id = item.dressId;
+      const inc = operation === 'increment' ? item.increment : -item.increment;
+      totalStockMap[id] = (totalStockMap[id] || 0) + inc;
+    }
+
+    // Update totalStock for each parent dress
+    const updateOps = Object.entries(totalStockMap).map(([dressId, delta]) => ({
+      updateOne: {
+        filter: {
+          _id: new mongoose.Types.ObjectId(`${dressId}`),
+          boutiqueId: new mongoose.Types.ObjectId(`${boutiqueId}`),
+        },
+        update: { $inc: { totalStock: delta } },
+      },
+    }));
+
+    if (updateOps.length > 0) {
+      await Dress.collection.bulkWrite(updateOps);
+    }
+
+    return true;
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error updating purse batch stock:', error);
@@ -74,9 +106,9 @@ async function dressBatchColorStockHandler(dressesArr, operation, next) {
   }
 }
 
-async function updateDressActiveStatus(dressId) {
+async function updateDressActiveStatus(dressId, boutiqueId) {
   // Check if any color has stock greater than 0
-  const dress = await Dress.findById(dressId).populate('colors');
+  const dress = await Dress.findOne({ _id: dressId, boutiqueId }).populate('colors');
   if (!dress) {
     throw new Error('Dress not found for id ' + dressId);
   }
@@ -93,9 +125,12 @@ async function updateDressActiveStatus(dressId) {
   return dress;
 }
 
-async function removeDressById(dressId, req, next) {
+async function removeDressById(dressId, boutiqueId, req, next) {
   try {
-    const dress = await Dress.findById(dressId).populate('colors');
+    if (!dressId || !boutiqueId) {
+      throw new Error(`Purse [${dressId}] or Boutique [${boutiqueId}] ID not provided `);
+    }
+    const dress = await Dress.findOne({ _id: dressId, boutiqueId }).populate('colors');
     if (!dress) {
       throw new Error('Dress not found for id ' + dressId);
     }
@@ -105,12 +140,8 @@ async function removeDressById(dressId, req, next) {
       await DressColor.findByIdAndDelete(colorId);
     }
 
-    // Delete image from s3 bucket
-    // Ovo ne radimo zato sto ce svi orderi da izgube sliku proizvoda!!!
-    // await deleteMediaFromS3(dress.image.imageName, 'clients/infinity_boutique/images/products');
-
     // Delete the Dress object
-    const deletedDress = await Dress.findByIdAndDelete(dressId);
+    const deletedDress = await Dress.findOneAndDelete({ _id: dressId, boutiqueId });
     if (!deletedDress) {
       return next(new CustomError(`Proizvod sa ID: ${dressId} nije pronađen`, 404));
     }
@@ -119,11 +150,9 @@ async function removeDressById(dressId, req, next) {
     const io = req.app.locals.io;
     if (io) {
       if (dress.active) {
-        io.emit('activeDressRemoved', deletedDress._id);
-        io.emit('activeProductRemoved', deletedDress._id);
+        io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedDress._id);
       } else {
-        io.emit('inactiveDresseRemoved', deletedDress._id);
-        io.emit('inactiveProductRemoved', deletedDress._id);
+        io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedDress._id);
       }
     }
 

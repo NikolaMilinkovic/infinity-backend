@@ -4,8 +4,10 @@
 
 require('dotenv').config();
 const logtail = require('../utils/logger');
-const { Discord } = require('./discord/infinityErrorBot');
+const { logErrorToChannel } = require('./discord/infinityErrorBot');
+const Boutique = require('../schemas/boutiqueSchema');
 const { writeToLog } = require('../utils/s3/S3Methods');
+const { getBoutiqueId } = require('./helperMethods');
 
 /**
  * message - String
@@ -32,11 +34,25 @@ class CustomError extends Error {
         stack: this.stack,
         passedData: this.passedData,
       });
-      writeToLog(
-        req,
-        `[ERROR]${this.message}\n[Method] ${req.method}\n[Path] ${req.originalUrl}\n[Code] ${this.code}.}\n${this.stack}`,
-        token
-      );
+
+      // DISCORD
+      if (req?.user?.boutiqueId) {
+        const boutiqueId = getBoutiqueId(req);
+        if (boutiqueId) {
+          Boutique.findById(boutiqueId).then((boutique_data) => {
+            logErrorToChannel(boutique_data.boutiqueName, this, passedData).catch((err) =>
+              console.error('Failed sending error to Discord:', err)
+            );
+          });
+        }
+      }
+      if (token) {
+        writeToLog(
+          req,
+          `[ERROR]${this.message}\n[Method] ${req.method}\n[Path] ${req.originalUrl}\n[Code] ${this.code}.}\n${this.stack}`,
+          token
+        );
+      }
     } else {
       logtail.error(`Code: ${this.statusCode} | ${this.message}`, {
         statusCode: this.statusCode,
@@ -46,7 +62,6 @@ class CustomError extends Error {
       writeToLog({}, `[ERROR]${this.message}\n[Code] ${this.statusCode}.}\n${this.stack}\n[PASSED DATA] ${passedData}`);
     }
 
-    Discord.logError(this, req, passedData);
     Error.captureStackTrace(this, this.constructor);
   }
 }

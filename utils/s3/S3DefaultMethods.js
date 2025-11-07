@@ -23,7 +23,7 @@ function getCurrentTime() {
   return new Date().toISOString().slice(11, 16).replace(':', ''); // e.g. "1423"
 }
 
-async function uploadMediaToS3(file, folderPath = '', next, withResize = true, x = 480, y = 640) {
+async function uploadMediaToS3(file, folderPath = '', withResize = true, tag = null, x = 480, y = 640) {
   try {
     let imageBuffer = file.buffer;
     if (withResize) {
@@ -41,6 +41,10 @@ async function uploadMediaToS3(file, folderPath = '', next, withResize = true, x
       ACL: 'public-read',
       ContentType: file.mimeType,
     };
+    // S3 expects tags as URL-encoded string: key1=value1&key2=value2
+    if (tag) {
+      params.Tagging = `Type=${tag}`;
+    }
 
     const command = new PutObjectCommand(params);
     const s3_response = await s3.send(command);
@@ -51,14 +55,12 @@ async function uploadMediaToS3(file, folderPath = '', next, withResize = true, x
         imageName: imageName,
       };
     } else {
-      return next(
-        new CustomError('Došlo je do problema prilikom uploadovanja slike', s3_response.$metadata.httpStatusCode)
-      );
+      throw new CustomError('Došlo je do problema prilikom uploadovanja slike', s3_response.$metadata.httpStatusCode);
     }
   } catch (error) {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error uploading media to the s3 bucket:', error);
-    return next(new CustomError('Došlo je do problema prilikom uploadovanja slike', statusCode));
+    throw new CustomError('Došlo je do problema prilikom uploadovanja slike', statusCode);
   }
 }
 
@@ -88,8 +90,6 @@ async function deleteMediaFromS3(imageName, path = '') {
 async function uploadFileToS3(fileName = '', file, filePath = '', next) {
   try {
     if (!fileName) next(new CustomError('Ime fajla je neophodno.', 404));
-    betterConsoleLog('> ime fajla:', fileName);
-    // Construct key with optional path
     const key = filePath ? `${filePath.replace(/\/$/, '')}/${fileName}` : fileName;
 
     const params = {

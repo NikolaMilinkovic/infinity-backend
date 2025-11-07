@@ -1,13 +1,14 @@
 const Supplier = require('../schemas/supplier');
 const CustomError = require('../utils/CustomError');
-const { updateLastUpdatedField } = require('../utils/helperMethods');
+const { updateLastUpdatedField, getBoutiqueId } = require('../utils/helperMethods');
 const { betterErrorLog } = require('../utils/logMethods');
 const { writeToLog } = require('../utils/s3/S3Methods');
 
 // GET ALL SUPPLIERS
 exports.getSuppliers = async (req, res, next) => {
   try {
-    const suppliers = await Supplier.find();
+    const boutiqueId = getBoutiqueId(req);
+    const suppliers = await Supplier.find({ boutiqueId });
     res.status(200).json(suppliers);
   } catch (error) {
     betterErrorLog('> Error fetchin suppliers:', error);
@@ -18,25 +19,26 @@ exports.getSuppliers = async (req, res, next) => {
 // ADD NEW SUPPLIER
 exports.addSupplier = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { supplier } = req.body;
+    const supplierExists = await Supplier.findOne({ name: supplier.name, boutiqueId });
+    if (supplierExists) return res.status(409).json({ message: `Dobavljač ${supplier.name} već postoji.` });
     const newSupplier = new Supplier({
+      boutiqueId,
       name: supplier.name,
     });
 
     const addedSupplier = await newSupplier.save();
     const io = req.app.locals.io;
     if (io) {
-      await updateLastUpdatedField('supplierLastUpdatedAt', io);
-      io.emit('supplierAdded', newSupplier);
+      await updateLastUpdatedField('supplierLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('supplierAdded', newSupplier);
     }
 
     res.status(200).json({ message: `${newSupplier.name} je uspesno dodata`, supplier: newSupplier });
 
     await writeToLog(req, `[SUPPLIERS] Added a supplier [${addedSupplier._id}] with name [${addedSupplier.name}].`);
   } catch (error) {
-    if (error.code === 11000) {
-      return next(new CustomError(`${error.keyValue.name} već postoji`, 409, req));
-    }
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error adding a new supplier:', error);
     return next(
@@ -50,14 +52,15 @@ exports.addSupplier = async (req, res, next) => {
 // UPDATE A SUPPLIER
 exports.updateSupplier = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { name } = req.body;
     const { id } = req.params;
-    const updatedSupplier = await Supplier.findByIdAndUpdate(id, { name }, { new: true });
+    const updatedSupplier = await Supplier.findOneAndUpdate({ _id: id, boutiqueId }, { name }, { new: true });
 
     const io = req.app.locals.io;
     if (io) {
-      await updateLastUpdatedField('supplierLastUpdatedAt', io);
-      io.emit('supplierUpdated', updatedSupplier);
+      await updateLastUpdatedField('supplierLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('supplierUpdated', updatedSupplier);
     }
 
     res.status(200).json({
@@ -84,8 +87,9 @@ exports.updateSupplier = async (req, res, next) => {
 // DELETE A SUPPLIER
 exports.deleteSupplier = async (req, res, next) => {
   try {
+    const boutiqueId = getBoutiqueId(req);
     const { id } = req.params;
-    const deletedSupplier = await Supplier.findByIdAndDelete(id);
+    const deletedSupplier = await Supplier.findOneAndDelete({ _id: id, boutiqueId });
     if (!deletedSupplier) {
       return next(new CustomError(`Dobavljač sa ID: ${id} nije pronadjen`, 404, req));
     }
@@ -93,8 +97,8 @@ exports.deleteSupplier = async (req, res, next) => {
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if (io) {
-      await updateLastUpdatedField('supplierLastUpdatedAt', io);
-      io.emit('supplierRemoved', deletedSupplier._id);
+      await updateLastUpdatedField('supplierLastUpdatedAt', io, boutiqueId);
+      io.to(`boutique-${boutiqueId}`).emit('supplierRemoved', deletedSupplier._id);
     }
 
     res
