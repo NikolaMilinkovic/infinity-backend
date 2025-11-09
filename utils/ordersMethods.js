@@ -39,7 +39,7 @@ async function removeOrderById(orderId, boutiqueId, req) {
 
       if (item.stockType === 'Boja-Veličina-Količina') {
         // Handle dress stock update
-        // const dressItem = await Dress.findById(item.itemReference).session(session);
+        const dressItem = await Dress.findById(item.itemReference).session(session);
         const colorItem = await DressColor.findById(item.selectedColorId).populate('sizes').session(session);
 
         if (!colorItem) {
@@ -52,7 +52,7 @@ async function removeOrderById(orderId, boutiqueId, req) {
         }
 
         size.stock += quantity;
-        // dressItem.totalStock += quantity;
+        dressItem.totalStock += quantity;
 
         if (size.stock < 0) {
           throw new CustomError(
@@ -63,7 +63,7 @@ async function removeOrderById(orderId, boutiqueId, req) {
 
         colorItem.markModified('sizes');
         await colorItem.save({ session });
-        // await dressItem.save({ session });
+        await dressItem.save({ session });
 
         // Collect dress update for socket emission
         dressUpdates.push({
@@ -75,14 +75,14 @@ async function removeOrderById(orderId, boutiqueId, req) {
         });
       } else {
         // Handle purse stock update
-        // const purseItem = await Purse.findById(item.itemReference).session(session);
+        const purseItem = await Purse.findById(item.itemReference).session(session);
         const colorItem = await PurseColor.findById(item.selectedColorId).session(session);
         if (!colorItem) {
           throw new CustomError(`PurseColorItem sa ID: ${item.selectedColorId} nije pronađen`, 404);
         }
 
         colorItem.stock += quantity;
-        // purseItem.totalStock += quantity;
+        purseItem.totalStock += quantity;
 
         if (colorItem.stock < 0) {
           throw new CustomError(
@@ -92,7 +92,7 @@ async function removeOrderById(orderId, boutiqueId, req) {
         }
 
         await colorItem.save({ session });
-        // await purseItem.save({ session });
+        await purseItem.save({ session });
 
         // Collect purse update for socket emission
         purseUpdates.push({
@@ -257,31 +257,31 @@ async function removeBatchOrdersById(orderIds, boutiqueId, req) {
       })
     );
 
-    // Dresses
-    // const uniqueDressIncrements = new Map();
-    // for (const d of dressItems) {
-    //   if (!uniqueDressIncrements.has(d.dressId)) {
-    //     uniqueDressIncrements.set(d.dressId, 0);
-    //   }
-    //   uniqueDressIncrements.set(d.dressId, uniqueDressIncrements.get(d.dressId) + d.increment);
-    // }
+    // Dresses | Total stock update
+    const uniqueDressIncrements = new Map();
+    for (const d of dressItems) {
+      if (!uniqueDressIncrements.has(d.dressId)) {
+        uniqueDressIncrements.set(d.dressId, 0);
+      }
+      uniqueDressIncrements.set(d.dressId, uniqueDressIncrements.get(d.dressId) + d.increment);
+    }
 
-    // for (const [dressId, increment] of uniqueDressIncrements.entries()) {
-    //   await Dress.findByIdAndUpdate(dressId, { $inc: { totalStock: increment } }, { session });
-    // }
+    for (const [dressId, increment] of uniqueDressIncrements.entries()) {
+      await Dress.findByIdAndUpdate(dressId, { $inc: { totalStock: increment } }, { session });
+    }
 
-    // // Purses
-    // const uniquePurseIncrements = new Map();
-    // for (const p of purseItems) {
-    //   if (!uniquePurseIncrements.has(p.purseId)) {
-    //     uniquePurseIncrements.set(p.purseId, 0);
-    //   }
-    //   uniquePurseIncrements.set(p.purseId, uniquePurseIncrements.get(p.purseId) + p.increment);
-    // }
+    // Purses | Total stock update
+    const uniquePurseIncrements = new Map();
+    for (const p of purseItems) {
+      if (!uniquePurseIncrements.has(p.purseId)) {
+        uniquePurseIncrements.set(p.purseId, 0);
+      }
+      uniquePurseIncrements.set(p.purseId, uniquePurseIncrements.get(p.purseId) + p.increment);
+    }
 
-    // for (const [purseId, increment] of uniquePurseIncrements.entries()) {
-    //   await Purse.findByIdAndUpdate(purseId, { $inc: { totalStock: increment } }, { session });
-    // }
+    for (const [purseId, increment] of uniquePurseIncrements.entries()) {
+      await Purse.findByIdAndUpdate(purseId, { $inc: { totalStock: increment } }, { session });
+    }
 
     // Delete orders
     const deletedOrders = await Order.deleteMany({ _id: { $in: orderIds }, boutiqueId }, { session });

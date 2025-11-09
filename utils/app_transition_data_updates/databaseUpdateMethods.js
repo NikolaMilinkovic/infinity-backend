@@ -221,6 +221,50 @@ async function updateAllBoutiquesWithRequireBuyerImageField() {
   }
 }
 
+async function updateAllUsersWithUiObject() {
+  try {
+    console.log('🔄 Starting migration to add ui settings...');
+
+    // Find all users that don't have settings.ui
+    const usersWithoutUI = await User.find({
+      'settings.ui': { $exists: false },
+    });
+
+    console.log(`📊 Found ${usersWithoutUI.length} users without ui settings`);
+
+    if (usersWithoutUI.length === 0) {
+      console.log('✅ All users already have ui settings. No migration needed.');
+      return;
+    }
+
+    // Update all users without ui settings
+    const result = await User.updateMany(
+      { 'settings.ui': { $exists: false } },
+      {
+        $set: {
+          'settings.ui': {
+            displayKeyboardToolbar: true,
+          },
+        },
+      }
+    );
+
+    console.log(`✅ Migration completed!`);
+    console.log(`📝 Matched: ${result.matchedCount} users`);
+    console.log(`✏️  Modified: ${result.modifiedCount} users`);
+
+    // Verify the update
+    const verifiedUsers = await User.find({
+      'settings.ui.displayKeyboardToolbar': { $exists: true },
+    });
+
+    console.log(`✔️  Verification: ${verifiedUsers.length} users now have ui settings`);
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   updateAllColorsWithBoutiqueId,
   updateAllCouriersWithBoutiqueId,
@@ -236,4 +280,5 @@ module.exports = {
   ensureVersionDocument,
   updateAllBoutiquesWithRequireBuyerImageField,
   createInitialBoutique,
+  updateAllUsersWithUiObject,
 };

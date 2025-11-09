@@ -72,6 +72,7 @@ const {
   updateAllBoutiquesWithRequireBuyerImageField,
   ensureVersionDocument,
   createInitialBoutique,
+  updateAllUsersWithUiObject,
 } = require('./utils/app_transition_data_updates/databaseUpdateMethods');
 // ========================[DONE]========================
 // createInitialBoutique();
@@ -87,6 +88,7 @@ const {
 // updateAllOrdersWithBoutiqueId('690e77a3240e6e923096fd7c');
 // updateAllProcessedOrdersForPeriodWithBoutiqueId('690e77a3240e6e923096fd7c');
 // updateAllBoutiquesWithRequireBuyerImageField();
+// updateAllUsersWithUiObject();
 // ========================[DONE]========================
 
 ensureVersionDocument();

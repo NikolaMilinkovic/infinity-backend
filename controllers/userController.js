@@ -12,18 +12,9 @@ exports.getUserData = async (req, res, next) => {
   try {
     const userId = decodeUserIdFromToken(req.headers.authorization);
     const user = await User.findById(userId);
-    let usersList = [];
-    const boutiqueId = getBoutiqueId(req);
-    if (user.role === 'admin' && user.permissions.navigation.upravljanje_korisnicima) {
-      usersList = await User.find({ boutiqueId });
-    }
 
     res.status(200).json({
-      permissions: user.permissions,
-      settings: user.settings,
-      role: user.role,
-      pushToken: user.pushToken,
-      usersList: usersList,
+      user: user,
     });
   } catch (error) {
     betterErrorLog('> Error while fetching user data:', error);
@@ -88,7 +79,7 @@ exports.updateUserSettings = async (req, res, next) => {
     const userId = decodeUserIdFromToken(req.headers.authorization);
     const boutiqueId = getBoutiqueId(req);
     const user = await User.findOne({ _id: userId, boutiqueId });
-    user.settings.defaults = req.body.defaults;
+    user.settings = req.body.settings;
     await user.save();
     const io = req.app.locals.io;
     await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);

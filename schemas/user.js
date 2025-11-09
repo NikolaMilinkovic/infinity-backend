@@ -113,6 +113,13 @@ const UserSchema = new Schema(
         required: false,
         default: false,
       },
+      ui: {
+        displayKeyboardToolbar: {
+          type: Boolean,
+          required: false,
+          default: true,
+        },
+      },
     },
   },
   { timestamps: true }
