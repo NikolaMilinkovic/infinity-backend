@@ -320,7 +320,7 @@ exports.getOrdersForPeriodFromDate = async (req, res, next) => {
       },
       reservation: false,
       boutiqueId,
-    });
+    }).sort({ createdAt: -1 });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
       month: '2-digit',
