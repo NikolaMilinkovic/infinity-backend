@@ -52,6 +52,10 @@ const lastUpdatedSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    excelPresetLastUpdatedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 );

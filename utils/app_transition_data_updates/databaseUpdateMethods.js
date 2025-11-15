@@ -10,6 +10,7 @@ const ProductDisplayCounter = require('../../schemas/productDisplayCounter');
 const Order = require('../../schemas/order');
 const ProcessedOrdersForPeriod = require('../../schemas/processedOrdersForPeriod');
 const Version = require('../../schemas/version');
+const { LastUpdated } = require('../../schemas/lastUpdated');
 
 async function createInitialBoutique() {
   try {
@@ -221,47 +222,97 @@ async function updateAllBoutiquesWithRequireBuyerImageField() {
   }
 }
 
-async function updateAllUsersWithUiObject() {
+async function updateAllUsersWithNewFields() {
   try {
-    console.log('🔄 Starting migration to add ui settings...');
+    console.log('🔄 Starting migration...');
 
-    // Find all users that don't have settings.ui
-    const usersWithoutUI = await User.find({
-      'settings.ui': { $exists: false },
-    });
-
-    console.log(`📊 Found ${usersWithoutUI.length} users without ui settings`);
-
-    if (usersWithoutUI.length === 0) {
-      console.log('✅ All users already have ui settings. No migration needed.');
-      return;
-    }
-
-    // Update all users without ui settings
-    const result = await User.updateMany(
-      { 'settings.ui': { $exists: false } },
+    // 1️⃣ Add enableCroppingForProductImage if missing
+    const result1 = await User.updateMany(
+      {
+        $or: [
+          { 'settings.productsManager.enableCroppingForProductImage': { $exists: false } },
+          { 'settings.productsManager.useAspectRatioForProductImage': { $exists: false } },
+        ],
+      },
       {
         $set: {
-          'settings.ui': {
-            displayKeyboardToolbar: true,
+          'settings.productsManager.enableCroppingForProductImage': true,
+          'settings.productsManager.useAspectRatioForProductImage': true,
+        },
+      }
+    );
+    console.log(`> Added 'enableCroppingForProductImage'`);
+    console.log(`> Matched: ${result1.matchedCount}, Modified: ${result1.modifiedCount}`);
+
+    // 2️⃣ Add ordersManager fields if missing (safe, won't remove existing fields)
+    const result2 = await User.updateMany(
+      {
+        $or: [
+          { 'settings.ordersManager.enableCroppingForBuyerImage': { $exists: false } },
+          { 'settings.ordersManager.useAspectRatioForBuyerImage': { $exists: false } },
+        ],
+      },
+      {
+        $set: {
+          'settings.ordersManager.enableCroppingForBuyerImage': true,
+          'settings.ordersManager.useAspectRatioForBuyerImage': true,
+        },
+      }
+    );
+    console.log(`> Added missing 'ordersManager' fields`);
+    console.log(`> Matched: ${result2.matchedCount}, Modified: ${result2.modifiedCount}`);
+
+    console.log('✅ Migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    throw error;
+  }
+}
+
+async function addExcelPermissions() {
+  try {
+    console.log('🔄 Starting migration...');
+
+    const result = await User.updateMany(
+      {
+        $or: [
+          { 'permissions.navigation.excel_manager': { $exists: false } },
+          { 'permissions.excel': { $exists: false } },
+        ],
+      },
+      {
+        $set: {
+          'permissions.navigation.excel_manager': false,
+          'permissions.excel': {
+            create: false,
+            update: false,
+            delete: false,
           },
         },
       }
     );
 
-    console.log(`✅ Migration completed!`);
-    console.log(`📝 Matched: ${result.matchedCount} users`);
-    console.log(`✏️  Modified: ${result.modifiedCount} users`);
-
-    // Verify the update
-    const verifiedUsers = await User.find({
-      'settings.ui.displayKeyboardToolbar': { $exists: true },
-    });
-
-    console.log(`✔️  Verification: ${verifiedUsers.length} users now have ui settings`);
+    console.log(`> Added 'excel_manager' and 'permissions.excel' where missing`);
+    console.log(`> Matched: ${result.matchedCount}, Modified: ${result.modifiedCount}`);
+    console.log('✅ Migration completed successfully!');
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;
+  }
+}
+
+async function addExcelPresetLastUpdatedAt() {
+  try {
+    console.log('🔄 Starting update of excelPresetLastUpdatedAt...');
+
+    const result = await LastUpdated.updateMany(
+      { excelPresetLastUpdatedAt: { $exists: false } },
+      { $set: { excelPresetLastUpdatedAt: new Date() } }
+    );
+
+    console.log(`✅ Done. Modified: ${result.modifiedCount}`);
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
   }
 }
 
@@ -280,5 +331,7 @@ module.exports = {
   ensureVersionDocument,
   updateAllBoutiquesWithRequireBuyerImageField,
   createInitialBoutique,
-  updateAllUsersWithUiObject,
+  updateAllUsersWithNewFields,
+  addExcelPermissions,
+  addExcelPresetLastUpdatedAt,
 };

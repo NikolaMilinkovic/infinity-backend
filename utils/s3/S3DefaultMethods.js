@@ -8,19 +8,28 @@ const bucket_region = process.env.BUCKET_REGION;
 const crypto = require('crypto');
 const sharp = require('sharp');
 const { betterConsoleLog, betterErrorLog } = require('../logMethods');
+const fs = require('fs');
 
 function randomImageName(bytes = 32) {
   return crypto.randomBytes(bytes).toString('hex');
 }
-async function resizeImage(buffer, x = 1080, y = 1920) {
-  return await sharp(buffer).resize({ width: x, height: y, fit: 'contain' }).toBuffer();
+async function resizeImage(buffer, x = 1080, y = 1800) {
+  return await sharp(buffer)
+    .resize({
+      width: x,
+      height: y,
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .webp()
+    .toBuffer();
 }
 
 function getCurrentDate() {
   return new Date().toLocaleDateString('en-UK').replace(/\//g, '-');
 }
 function getCurrentTime() {
-  return new Date().toISOString().slice(11, 16).replace(':', ''); // e.g. "1423"
+  return new Date().toISOString().slice(11, 16).replace(':', '');
 }
 
 async function uploadMediaToS3(file, folderPath = '', withResize = true, tag = null, x = 480, y = 640) {
@@ -110,9 +119,7 @@ async function uploadFileToS3(fileName = '', file, filePath = '', next) {
       };
       return response;
     } else {
-      return next(
-        new CustomError('There was a problem uploading the Excel file', s3_response.$metadata.httpStatusCode)
-      );
+      return next(new CustomError('There was a problem uploading the file', s3_response.$metadata.httpStatusCode));
     }
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -121,4 +128,36 @@ async function uploadFileToS3(fileName = '', file, filePath = '', next) {
   }
 }
 
-module.exports = { uploadMediaToS3, deleteMediaFromS3, uploadFileToS3, getCurrentDate, getCurrentTime };
+async function uploadLocalFileToS3(filePath, s3Key) {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const params = {
+      Bucket: bucket_name,
+      Key: s3Key,
+      Body: fileBuffer,
+      ContentType: 'application/zip',
+    };
+
+    const command = new PutObjectCommand(params);
+    const s3_response = await s3.send(command);
+
+    if (s3_response.$metadata.httpStatusCode === 200) {
+      console.log('> DB dump stored successfully to storage');
+      return `https://${bucket_name}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${s3Key}`;
+    } else {
+      throw new Error('Upload failed');
+    }
+  } catch (err) {
+    console.error('Failed to upload file to S3:', err);
+    throw err;
+  }
+}
+
+module.exports = {
+  uploadMediaToS3,
+  deleteMediaFromS3,
+  uploadFileToS3,
+  uploadLocalFileToS3,
+  getCurrentDate,
+  getCurrentTime,
+};

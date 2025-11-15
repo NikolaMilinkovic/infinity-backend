@@ -711,9 +711,16 @@ exports.batchReservationsToCourier = async (req, res, next) => {
 };
 
 exports.parseOrdersForLatestPeriod = async (req, res, next) => {
+  function getCurrentMonthYear() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${month}-${year}`;
+  }
   try {
     const boutiqueId = getBoutiqueId(req);
     const { fileName, fileData, courier } = req.body;
+    const month_year = getCurrentMonthYear();
     let uploadedFile;
     if (fileData) {
       const buffer = Buffer.from(fileData, 'base64');
@@ -726,7 +733,7 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
       uploadedFile = await uploadFileToS3(
         `orders-for-${getCurrentDate()}-${getCurrentTime()}-${courier}.xlsx`,
         { buffer, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-        `clients/${boutique_data.boutiqueName}/excel/parsed_orders`,
+        `clients/${boutique_data.boutiqueName}/excel/parsed_orders/${month_year}/`,
         next
       );
       // uri & fileName

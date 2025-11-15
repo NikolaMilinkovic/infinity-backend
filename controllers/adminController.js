@@ -2,7 +2,6 @@ const Boutique = require('../schemas/boutiqueSchema');
 const User = require('../schemas/user');
 const ProductDisplayCounter = require('../schemas/productDisplayCounter');
 const { LastUpdated } = require('../schemas/lastUpdated');
-const { createAdminUserForBoutique } = require('../utils/admin/adminMethods');
 const CustomError = require('../utils/CustomError');
 const { betterErrorLog } = require('../utils/logMethods');
 const { writeToLog } = require('../utils/s3/S3Methods');
@@ -31,10 +30,6 @@ exports.addBoutique = async (req, res, next) => {
     newBoutique.lastUpdatedId = savedLastUpdated._id;
     await newBoutique.save();
 
-    // Create new admin user
-    await createAdminUserForBoutique(newBoutique);
-
-    // TODO: Create product counter and link it here
     const productDisplayCounter = new ProductDisplayCounter({
       boutiqueId: newBoutique._id,
       high: 1,
@@ -62,6 +57,11 @@ exports.getBoutiqueUsers = async (req, res, next) => {
     let usersList = [];
     const boutiqueId = getBoutiqueId(req);
     if (user.role === 'admin' && user.permissions.navigation.upravljanje_korisnicima) {
+      usersList = await User.find({
+        boutiqueId,
+        isSuperAdmin: false,
+      });
+    } else if (user.role === 'admin' && user.permissions.navigation.upravljanje_korisnicima && user.isSuperAdmin) {
       usersList = await User.find({ boutiqueId });
     }
 
@@ -72,6 +72,22 @@ exports.getBoutiqueUsers = async (req, res, next) => {
     betterErrorLog('> Error while fetching boutique users data:', error);
     return next(
       new CustomError('Došlo je do problema prilikom preuzimanja podataka o korisnicima butika', 500, req, {
+        userId: req.headers.authorization,
+      })
+    );
+  }
+};
+
+exports.getBoutiques = async (req, res, next) => {
+  try {
+    const boutiques = await Boutique.find({}, '_id boutiqueName isActive');
+    res.status(200).json({
+      boutiques,
+    });
+  } catch (error) {
+    betterErrorLog('> Error while fetching boutiques data:', error);
+    return next(
+      new CustomError('Došlo je do problema prilikom preuzimanja podataka o buticima', 500, req, {
         userId: req.headers.authorization,
       })
     );

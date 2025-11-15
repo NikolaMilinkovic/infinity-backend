@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+const { Schema } = mongoose;
 
 const CourierSchema = new Schema(
   {
@@ -7,19 +7,30 @@ const CourierSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Boutique',
       required: true,
+      index: true,
     },
     name: {
       type: String,
       required: [true, 'Please provide a courier name'],
-      unique: false,
+      trim: true,
     },
     deliveryPrice: {
       type: Number,
-      required: [true, 'Please provide a courier name'],
+      required: [true, 'Please provide a delivery price'],
+    },
+    excellSchemaId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Excell',
+      default: null,
     },
   },
   { timestamps: true }
 );
 
+// Unique courier name per boutique
 CourierSchema.index({ boutiqueId: 1, name: 1 }, { unique: true });
+
+// Quick lookup by boutique and linked schema
+CourierSchema.index({ boutiqueId: 1, excellSchemaId: 1 });
+
 module.exports = mongoose.model('Courier', CourierSchema);

@@ -53,6 +53,11 @@ database.on('error', console.error.bind(console, '> MongoDB connection error'));
 
 const { isAdmin } = require('./utils/helperMethods');
 
+// =====================[ TESTING ]======================
+// const { scheduleDatabaseBackup } = require('./schedulers/database/backupDatabase');
+// scheduleDatabaseBackup();
+// =====================[ TESTING ]======================
+
 // =====================[ APP TRANSITION UPDATE METHODS ]======================
 /**
  * Updates all the colors with boutique id that we pass to the method
@@ -72,7 +77,9 @@ const {
   updateAllBoutiquesWithRequireBuyerImageField,
   ensureVersionDocument,
   createInitialBoutique,
-  updateAllUsersWithUiObject,
+  updateAllUsersWithNewFields,
+  addExcelPermissions,
+  addExcelPresetLastUpdatedAt,
 } = require('./utils/app_transition_data_updates/databaseUpdateMethods');
 // ========================[DONE]========================
 // createInitialBoutique();
@@ -88,12 +95,14 @@ const {
 // updateAllOrdersWithBoutiqueId('690e77a3240e6e923096fd7c');
 // updateAllProcessedOrdersForPeriodWithBoutiqueId('690e77a3240e6e923096fd7c');
 // updateAllBoutiquesWithRequireBuyerImageField();
-// updateAllUsersWithUiObject();
+// updateAllUsersWithNewFields();
+// addExcelPermissions();
+// addExcelPresetLastUpdatedAt();
 // ========================[DONE]========================
 
 ensureVersionDocument();
 
-// const { updateTotalDressStock, updateTotalPurseStock } = require('./utils/updateAllOnStartup');
+const { updateTotalDressStock, updateTotalPurseStock } = require('./utils/updateAllOnStartup');
 // Potrebno je recalc sve total stock
 // updateTotalDressStock();
 // updateTotalPurseStock();
@@ -135,9 +144,11 @@ app.use('/couriers', couriersRouter);
 const suppliersRouter = require('./routers/suppliers');
 app.use('/suppliers', suppliersRouter);
 
+const excelRouter = require('./routers/excel');
+app.use('/excel', excelRouter);
+
 const lastUpdatedRouter = require('./routers/updatesTracker');
 app.use('/last-updated', lastUpdatedRouter);
-
 // =====================[ \PROTECTED ROUTERS ]=====================
 
 // =====================[ ADMIN ROUTE ]======================

@@ -176,7 +176,7 @@ exports.resetUserPushToken = async (req, res, next) => {
     await user.save();
     const io = req.app.locals.io;
     await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
-    res.status(200);
+    res.status(200).json({ message: 'Push token reset successfully' });
     await writeToLog(req, `[USERS] User [${userId}] reset his push token upon logout.`);
   } catch (error) {
     betterErrorLog('> Error while resetting user push token:', error);

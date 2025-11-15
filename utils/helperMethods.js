@@ -12,6 +12,7 @@ const { ProductDisplayCounter } = require('../schemas/productDisplayCounter');
 const Purse = require('../schemas/purse');
 const PurseColor = require('../schemas/purseColor');
 const Supplier = require('../schemas/supplier');
+const Excel = require('../schemas/excellSchema');
 const { betterErrorLog, betterConsoleLog } = require('./logMethods');
 const { LastUpdated } = require('../schemas/lastUpdated');
 
@@ -330,6 +331,9 @@ async function getUpdatedMismatchedData(mismatchedKeys, boutiqueId) {
               processed,
               unprocessed,
             };
+            break;
+          case 'excelPreset':
+            data = await Excel.find({ boutiqueId });
             break;
         }
 

@@ -32,6 +32,10 @@ const UserSchema = new Schema(
       type: String,
       required: false,
     },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false,
+    },
     permissions: {
       navigation: {
         lista_artikla: { type: Boolean, required: false, default: true },
@@ -44,6 +48,7 @@ const UserSchema = new Schema(
         zavrsi_dan: { type: Boolean, required: false, default: true },
         admin_dashboard: { type: Boolean, required: false, default: false },
         global_dashboard: { type: Boolean, required: false, default: false },
+        excel_manager: { type: Boolean, required: false, default: false },
       },
       products: {
         create: { type: Boolean, required: false, default: true },
@@ -84,6 +89,11 @@ const UserSchema = new Schema(
         update: { type: Boolean, required: false, default: false },
         delete: { type: Boolean, required: false, default: false },
       },
+      excel: {
+        create: { type: Boolean, required: false, default: false },
+        update: { type: Boolean, required: false, default: false },
+        delete: { type: Boolean, required: false, default: false },
+      },
     },
     settings: {
       defaults: {
@@ -115,6 +125,30 @@ const UserSchema = new Schema(
       },
       ui: {
         displayKeyboardToolbar: {
+          type: Boolean,
+          required: false,
+          default: true,
+        },
+      },
+      productsManager: {
+        enableCroppingForProductImage: {
+          type: Boolean,
+          required: false,
+          default: true,
+        },
+        useAspectRatioForProductImage: {
+          type: Boolean,
+          required: false,
+          default: true,
+        },
+      },
+      ordersManager: {
+        enableCroppingForBuyerImage: {
+          type: Boolean,
+          required: false,
+          default: true,
+        },
+        useAspectRatioForBuyerImage: {
           type: Boolean,
           required: false,
           default: true,
