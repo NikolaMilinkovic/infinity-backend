@@ -6,7 +6,8 @@
     "start": "node ./bin/www",
     "serverstart": "SET DEBUG=express-local-library:* & npm run devstart",
     "heroku-postbuild": "npm install --cpu=arm64 --os=linux --libc=musl sharp",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "postinstall": "chmod +x ./vendor/mongotools/*"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",
