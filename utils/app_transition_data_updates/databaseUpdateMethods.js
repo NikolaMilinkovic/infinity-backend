@@ -254,8 +254,8 @@ async function updateAllUsersWithNewFields() {
       },
       {
         $set: {
-          'settings.ordersManager.enableCroppingForBuyerImage': true,
-          'settings.ordersManager.useAspectRatioForBuyerImage': true,
+          'settings.ordersManager.enableCroppingForBuyerImage': false,
+          'settings.ordersManager.useAspectRatioForBuyerImage': false,
         },
       }
     );
