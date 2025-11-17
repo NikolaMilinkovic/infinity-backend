@@ -32,7 +32,8 @@ async function backupDatabase() {
     const date = getCurrentDate();
     const yearMonth = getCurrentYearMonth();
     let backupFolder = '/tmp';
-    let command = `../../vendor/mongotools/mongodump --uri="${databaseConnectionString}" --out="${backupFolder}" --gzip`;
+    const mongodumpPath = path.join(__dirname, '..', '..', 'vendor', 'mongotools', 'mongodump');
+    const command = `${mongodumpPath} --uri="${databaseConnectionString}" --out="${backupFolder}" --gzip`;
     let zipFilePath = `../../tmp/db-backup-${date}.zip`;
     let dbFolderPathForZipping = `${backupFolder}/infinity_boutique_app`;
 
