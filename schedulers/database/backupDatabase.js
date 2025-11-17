@@ -62,16 +62,16 @@ async function backupDatabase() {
 }
 
 function scheduleDatabaseBackup() {
-  // const scheduleTimes = ['0 4 * * *'];
-  // scheduleTimes.forEach((time) => {
-  //   cron.schedule(time, backupDatabase, {
-  //     timezone: 'Europe/Belgrade',
-  //   });
-  // });
+  const scheduleTimes = ['0 4 * * *'];
+  scheduleTimes.forEach((time) => {
+    cron.schedule(time, backupDatabase, {
+      timezone: 'Europe/Belgrade',
+    });
+  });
 
-  setTimeout(() => {
-    backupDatabase();
-  }, 20000);
+  // setTimeout(() => {
+  //   backupDatabase();
+  // }, 20000);
 }
 
 module.exports = { scheduleDatabaseBackup };
