@@ -6,6 +6,7 @@ const databaseConnectionString = process.env.DB_URL;
 const isProduction = process.env.NODE_ENV === 'production';
 const path = require('path');
 const { uploadLocalFileToS3 } = require('../../utils/s3/S3DefaultMethods');
+// const {} = require('../../vendor/mongotools/mongodump')
 
 function execPromise(command) {
   return new Promise((resolve, reject) => {
@@ -31,7 +32,7 @@ async function backupDatabase() {
     const date = getCurrentDate();
     const yearMonth = getCurrentYearMonth();
     let backupFolder = '/tmp';
-    let command = `mongodump --uri="${databaseConnectionString}" --out="${backupFolder}" --gzip`;
+    let command = `../../vendor/mongotools/mongodump --uri="${databaseConnectionString}" --out="${backupFolder}" --gzip`;
     let zipFilePath = `../../tmp/db-backup-${date}.zip`;
     let dbFolderPathForZipping = `${backupFolder}/infinity_boutique_app`;
 
