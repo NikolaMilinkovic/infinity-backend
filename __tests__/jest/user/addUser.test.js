@@ -32,7 +32,7 @@ const { betterErrorLog } = require('../../../utils/logMethods');
 describe('POST /add-user', () => {
   const fakeUser = {
     _id: '12345',
-    username: 'testuser',
+    email: 'testuser',
     name: 'Test User',
     password: 'hashedPassword',
     role: 'user',
@@ -51,7 +51,7 @@ describe('POST /add-user', () => {
 
   const userData = {
     user: {
-      username: 'testuser',
+      email: 'testuser',
       name: 'Test User',
       password: '1234',
       role: 'user',
@@ -83,11 +83,11 @@ describe('POST /add-user', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('Korisnik uspešno dodat');
     expect(User.prototype.save).toHaveBeenCalled();
-    expect(app.locals.io.emit).toHaveBeenCalledWith('addUser', expect.objectContaining({ username: 'testuser' }));
+    expect(app.locals.io.emit).toHaveBeenCalledWith('addUser', expect.objectContaining({ email: 'testuser' }));
     expect(writeToLog).toHaveBeenCalled();
   });
 
-  it('should return error if username already exists', async () => {
+  it('should return error if email already exists', async () => {
     User.findOne.mockResolvedValue(fakeUser);
 
     const res = await request(app).post('/user/add-user').send(userData);

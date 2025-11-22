@@ -25,7 +25,19 @@ const Boutique = new Schema(
       required: false,
     },
     settings: {
-      appIcon: {
+      appIcon_on_white_background: {
+        appIconUri: {
+          type: String,
+          required: false,
+          default: '',
+        },
+        appIconName: {
+          type: String,
+          required: false,
+          default: '',
+        },
+      },
+      appIcon_on_black_background: {
         appIconUri: {
           type: String,
           required: false,

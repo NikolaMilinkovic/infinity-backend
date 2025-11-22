@@ -18,7 +18,7 @@ const CourierSchema = new Schema(
       type: Number,
       required: [true, 'Please provide a delivery price'],
     },
-    excellSchemaId: {
+    excelSchemaId: {
       type: Schema.Types.ObjectId,
       ref: 'Excell',
       default: null,
@@ -31,6 +31,6 @@ const CourierSchema = new Schema(
 CourierSchema.index({ boutiqueId: 1, name: 1 }, { unique: true });
 
 // Quick lookup by boutique and linked schema
-CourierSchema.index({ boutiqueId: 1, excellSchemaId: 1 });
+CourierSchema.index({ boutiqueId: 1, excelSchemaId: 1 });
 
 module.exports = mongoose.model('Courier', CourierSchema);

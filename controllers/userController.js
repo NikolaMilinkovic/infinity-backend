@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { addLogFileForNewUser, renameUserLogFile } = require('../utils/s3/S3Methods');
 const { writeToLog } = require('../utils/s3/S3Methods');
 const { getBoutiqueId, updateLastUpdatedField } = require('../utils/helperMethods');
+const { deepCompareAndUpdate } = require('../utils/compareMethods');
 
 exports.getUserData = async (req, res, next) => {
   try {
@@ -29,12 +30,12 @@ exports.getUserData = async (req, res, next) => {
 exports.addUser = async (req, res, next) => {
   try {
     const userData = req.body.user;
-    const username = userData.username;
+    const email = userData.email;
     const name = userData.name;
     const password = userData.password;
     const role = userData.role;
     const permissions = userData.permissions;
-    const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ email });
     const pushToken = '';
     const boutiqueId = getBoutiqueId(req);
     const user_boutique = await Boutique.findById(boutiqueId);
@@ -43,7 +44,7 @@ exports.addUser = async (req, res, next) => {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
       const newUser = new User({
-        username,
+        email,
         name,
         password: hashedPassword,
         role,
@@ -64,9 +65,9 @@ exports.addUser = async (req, res, next) => {
       await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
       io.to(`boutique-${boutiqueId}`).emit('addUser', addedUser);
       res.status(200).json({ message: 'Korisnik uspešno dodat' });
-      await writeToLog(req, `[USERS] Added a new user ${addedUser._id} | ${addedUser.username}.`);
+      await writeToLog(req, `[USERS] Added a new user ${addedUser._id} | ${addedUser.email}.`);
     } else {
-      return next(new CustomError('Korisnik sa tim korisničkim imenom već postoji!', 500, req));
+      return next(new CustomError('Korisnik sa tim mejlon već postoji!', 500, req));
     }
   } catch (error) {
     betterErrorLog('> Error while adding a new user:', error);
@@ -79,10 +80,15 @@ exports.updateUserSettings = async (req, res, next) => {
     const userId = decodeUserIdFromToken(req.headers.authorization);
     const boutiqueId = getBoutiqueId(req);
     const user = await User.findOne({ _id: userId, boutiqueId });
-    user.settings = req.body.settings;
+
+    // Merge new settings into existing settings
+    user.settings = deepCompareAndUpdate(user.settings, req.body.settings);
+
     await user.save();
+
     const io = req.app.locals.io;
     await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
+
     res.status(200).json({ message: 'Podešavanja uspešno ažurirana' });
     await writeToLog(req, `[USERS] Updated his user settings.`);
   } catch (error) {
@@ -103,10 +109,10 @@ exports.updateUser = async (req, res, next) => {
         hashedPassword = await bcrypt.hash(userData.password, salt);
         user.password = hashedPassword;
       }
-      if (user.username !== userData.username) {
+      if (user.email !== userData.email) {
         const user_boutique = await Boutique.findById(userData.boutiqueId);
-        await renameUserLogFile(user._id, user.username, userData.username, user_boutique.boutiqueName);
-        user.username = userData.username;
+        await renameUserLogFile(user._id, user.email, userData.email, user_boutique.boutiqueName);
+        user.email = userData.email;
       }
       if (user.name !== userData.name) user.name = userData.name;
       if (user.role !== userData.role) user.role = userData.role;
@@ -120,7 +126,7 @@ exports.updateUser = async (req, res, next) => {
       io.to(`boutique-${boutiqueId}`).emit('updateUser', updatedUser, receivedToken);
       res.status(200).json({ message: 'Korisnik uspešno ažuriran' });
 
-      await writeToLog(req, `[USERS] Updated a user [${user._id}] with username: [${user.username}].`);
+      await writeToLog(req, `[USERS] Updated a user [${user._id}] with email: [${user.email}].`);
     } else {
       return next(new CustomError('Korisnik nije pronađen u bazi podataka', 500, req));
     }
@@ -142,7 +148,7 @@ exports.removeUser = async (req, res, next) => {
     await updateLastUpdatedField('userLastUpdatedAt', io, boutiqueId);
     io.to(`boutique-${boutiqueId}`).emit('removeUser', userId);
     res.status(200).json({ message: 'Korisnik je uspešno obrisan' });
-    await writeToLog(req, `[USERS] Removed a user [${deletedUser._id}] with username: [${deletedUser.username}].`);
+    await writeToLog(req, `[USERS] Removed a user [${deletedUser._id}] with email: [${deletedUser.email}].`);
   } catch (error) {
     betterErrorLog('> Error while updating user data:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja podataka o korisniku', 500, req));

@@ -81,14 +81,39 @@ exports.getBoutiqueUsers = async (req, res, next) => {
 exports.getBoutiques = async (req, res, next) => {
   try {
     const boutiques = await Boutique.find({}, '_id boutiqueName isActive');
-    res.status(200).json({
-      boutiques,
+    const boutiqueId = getBoutiqueId(req);
+
+    boutiques.sort((a, b) => {
+      if (a._id.equals(boutiqueId)) return -1;
+      if (b._id.equals(boutiqueId)) return 1;
+      return 0;
     });
+
+    res.status(200).json({ boutiques });
   } catch (error) {
     betterErrorLog('> Error while fetching boutiques data:', error);
     return next(
       new CustomError('Došlo je do problema prilikom preuzimanja podataka o buticima', 500, req, {
         userId: req.headers.authorization,
+      })
+    );
+  }
+};
+
+exports.changeBoutique = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(404).json({ message: 'ID butika je neophodan!' });
+    const updatedUser = await User.findByIdAndUpdate(req.user._id, { boutiqueId: id }, { new: true });
+
+    res.status(200).json({ message: 'Postali ste korisnik izabranog butika' });
+    await writeToLog(req, `[ADMIN] Switched to boutique [${updatedUser.boutiqueId}]`);
+  } catch (error) {
+    betterErrorLog('> Error while updating boutiqueId:', error);
+    return next(
+      new CustomError('Došlo je do problema prilikom izmene boutiqueId', 500, req, {
+        userId: req.user._id,
+        boutiqueId: req.params,
       })
     );
   }

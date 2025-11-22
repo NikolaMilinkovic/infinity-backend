@@ -63,12 +63,17 @@ io.on('connection', async (socket) => {
         if (user.boutiqueId) {
           const room = `boutique-${user.boutiqueId}`;
           socket.join(room);
-          console.log(`> User ${user.username} [${user._id}] joined room: ${room}`);
-          await writeToLog({}, `[SOCKET] Connected to the server into room ${room}`, token);
+          console.log(`> User ${user.email} [${user._id}] joined room: ${room}`);
         } else {
-          console.log(`> User ${user.username} [${user._id}] connected (no boutiqueId)`);
-          await writeToLog({}, `[SOCKET] Connected to the server but no boutique room!`, token);
+          console.log(`> User ${user.email} [${user._id}] connected (no boutiqueId)`);
         }
+
+        if (user.isSuperAdmin) {
+          socket.join('superadmins');
+        }
+        if (user.boutiqueId) await writeToLog({}, `[SOCKET] Connected to the server into room ${room}`, token);
+        if (!user.boutiqueId) await writeToLog({}, `[SOCKET] Connected to the server but no boutique room!`, token);
+        if (user.isSuperAdmin) await writeToLog({}, `[SOCKET] Connected to the server into room superadmins`, token);
       } catch (err) {
         console.log(`> Socket auth error: ${err.message}`);
       }
@@ -99,7 +104,7 @@ io.on('connection', async (socket) => {
         if (user) {
           const room = `boutique-${user.boutiqueId}`;
           socket.leave(room);
-          console.log(`> User ${user.username} [${user._id}] left room: ${room}`);
+          console.log(`> User ${user.email} [${user._id}] left room: ${room}`);
           await writeToLog({}, `[SOCKET] Disconnected from server. Reason: [${reason}]`, token);
         }
       } catch (err) {

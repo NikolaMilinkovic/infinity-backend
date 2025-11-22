@@ -27,6 +27,7 @@ exports.addCourier = async (req, res, next) => {
       boutiqueId,
       name: courier.name,
       deliveryPrice: courier.deliveryPrice,
+      excelSchemaId: courier.excelSchemaId,
     });
 
     const response = await newCourier.save();
@@ -54,11 +55,12 @@ exports.addCourier = async (req, res, next) => {
 exports.updateCourier = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const { name, deliveryPrice } = req.body;
+    const { name, deliveryPrice, excelSchemaId } = req.body;
+    let excelId = excelSchemaId ? excelSchemaId : null;
     const { id } = req.params;
     const updatedCourier = await Courier.findOneAndUpdate(
       { _id: id, boutiqueId },
-      { name, deliveryPrice },
+      { name, deliveryPrice, excelSchemaId: excelId },
       { new: true }
     );
 
@@ -79,7 +81,7 @@ exports.updateCourier = async (req, res, next) => {
     const statusCode = error.statusCode || 500;
     betterErrorLog('> Error updating a courier:', error);
     return next(
-      new CustomError('Do[lo je do problema prilikom promene kurira', statusCode, req, {
+      new CustomError('Došlo je do problema prilikom promene kurira', statusCode, req, {
         name: req.body.name,
         deliveryPrice: req.body.deliveryPrice,
         id: req.params.id,

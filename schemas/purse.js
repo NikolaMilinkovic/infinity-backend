@@ -9,6 +9,7 @@ const PurseSchema = new Schema(
       ref: 'Boutique',
       required: true,
     },
+    isDeleted: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
     category: { type: String, required: [true, 'Category is required'] },
     stockType: { type: String, required: [true, 'Stock type is required'] },
@@ -27,4 +28,5 @@ const PurseSchema = new Schema(
 );
 
 PurseSchema.index({ boutiqueId: 1, active: 1 });
+PurseSchema.index({ boutiqueId: 1, isDeleted: 1 });
 module.exports = mongoose.model('Purse', PurseSchema);

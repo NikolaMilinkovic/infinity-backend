@@ -83,14 +83,14 @@ async function createMonthlyLogFolder(path = '') {
  */
 async function createUserLogFiles(monthFolderKey) {
   try {
-    const users = await User.find({}, { username: 1, _id: 1 });
+    const users = await User.find({}, { email: 1, _id: 1 });
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const monthStr = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
 
     for (const user of users) {
-      const userFolderKey = `${monthFolderKey}${user._id}_[${user.username}]/`;
+      const userFolderKey = `${monthFolderKey}${user._id}_[${user.email}]/`;
       // Create folder for user
       await s3.send(new PutObjectCommand({ Bucket: bucket_name, Key: userFolderKey, Body: '' }));
 
@@ -100,12 +100,12 @@ async function createUserLogFiles(monthFolderKey) {
       const params = {
         Bucket: bucket_name,
         Key: fileKey,
-        Body: `[Log for ${user.username} (${user._id}) | Date: ${day}-${monthStr}-${year}]\n`,
+        Body: `[Log for ${user.email} (${user._id}) | Date: ${day}-${monthStr}-${year}]\n`,
         ContentType: 'text/plain',
       };
 
       await s3.send(new PutObjectCommand(params));
-      console.log(`Created daily log file for user ${user.username}: ${fileKey}`);
+      console.log(`Created daily log file for user ${user.email}: ${fileKey}`);
     }
 
     return true;
@@ -132,18 +132,18 @@ async function addLogFileForNewUser(user, path = '') {
     const folderName = `${year}-${monthName}(${monthStr})`;
     const folderKey = `clients/${path.replace(/\/$/, '')}/logs/${folderName}/`;
 
-    const fileName = `${user._id}_${user.username}_${monthName}_${year}_log.txt`;
+    const fileName = `${user._id}_${user.email}_${monthName}_${year}_log.txt`;
     const fileKey = `${folderKey}${fileName}`;
 
     const params = {
       Bucket: bucket_name,
       Key: fileKey,
-      Body: `[Log for ${user.username} (${user._id}) | Period: ${monthName} ${year}]\n`,
+      Body: `[Log for ${user.email} (${user._id}) | Period: ${monthName} ${year}]\n`,
       ContentType: 'text/plain',
     };
 
     await s3.send(new PutObjectCommand(params));
-    console.log(`Created log file for new user ${user.username}: ${fileKey}`);
+    console.log(`Created log file for new user ${user.email}: ${fileKey}`);
   } catch (error) {
     console.error('Error adding log file for new user:', error);
     throw error;
@@ -151,13 +151,13 @@ async function addLogFileForNewUser(user, path = '') {
 }
 
 /**
- * Renames the log file for the updated user, only to be used if we are updating the username of the user
+ * Renames the log file for the updated user, only to be used if we are updating the email of the user
  * @param {User _id} userId
- * @param {Old username} oldUsername
- * @param {New Username} newUsername
+ * @param {Old email} oldemail
+ * @param {New email} newemail
  * @param {Boutique Name to be used inside path} path
  */
-async function renameUserLogFile(userId, oldUsername, newUsername, path = '') {
+async function renameUserLogFile(userId, oldemail, newemail, path = '') {
   try {
     if (!path) throw new Error('renameUserLogFile requires a valid path!');
     const now = new Date();
@@ -169,8 +169,8 @@ async function renameUserLogFile(userId, oldUsername, newUsername, path = '') {
     const folderName = `${year}-${monthName}(${monthStr})`;
     const folderKey = `clients/${path.replace(/\/$/, '')}/logs/${folderName}/`;
 
-    const oldFileKey = `${folderKey}${userId}_${oldUsername}_${monthName}_${year}_log.txt`;
-    const newFileKey = `${folderKey}${userId}_${newUsername}_${monthName}_${year}_log.txt`;
+    const oldFileKey = `${folderKey}${userId}_${oldemail}_${monthName}_${year}_log.txt`;
+    const newFileKey = `${folderKey}${userId}_${newemail}_${monthName}_${year}_log.txt`;
 
     // Copy existing file to new key
     await s3.send(
@@ -239,7 +239,7 @@ async function writeToLog(req, logContent, provided_JWT) {
     const dayStr = String(now.getDate()).padStart(2, '0');
 
     const monthFolderKey = `clients/${boutique.boutiqueName}/logs/${year}-${monthName}(${monthStr})/`;
-    const userFolderKey = `${monthFolderKey}${user._id}_[${user.username}]/`;
+    const userFolderKey = `${monthFolderKey}${user._id}_[${user.email}]/`;
 
     // Ensure month and user folder exist
     if (!(await folderExists(monthFolderKey))) await createMonthlyLogFolder(boutique.boutiqueName);
@@ -256,7 +256,7 @@ async function writeToLog(req, logContent, provided_JWT) {
       const s3Response = await s3.send(getCommand);
       existingContent = await streamToString(s3Response.Body);
     } catch (err) {
-      existingContent = `[Log for ${user.username} (${user._id}) | Date: ${dayStr}-${monthStr}-${year}]\n`;
+      existingContent = `[Log for ${user.email} (${user._id}) | Date: ${dayStr}-${monthStr}-${year}]\n`;
     }
 
     // 4. Append new entry

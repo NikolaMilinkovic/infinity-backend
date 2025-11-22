@@ -88,7 +88,9 @@ exports.addDress = async (req, res, next) => {
 exports.getAllActiveDresses = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const dresses = await Dress.find({ active: true, boutiqueId }).populate('colors').sort({ displayPriority: -1 });
+    const dresses = await Dress.find({ active: true, boutiqueId, isDeleted: false })
+      .populate('colors')
+      .sort({ displayPriority: -1 });
     res.status(200).json(dresses);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -103,7 +105,9 @@ exports.getAllActiveDresses = async (req, res, next) => {
 exports.getAllInactiveDresses = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const dresses = await Dress.find({ active: false, boutiqueId }).populate('colors').sort({ _id: -1 });
+    const dresses = await Dress.find({ active: false, boutiqueId, isDeleted: false })
+      .populate('colors')
+      .sort({ _id: -1 });
     res.status(200).json(dresses);
   } catch (error) {
     const statusCode = error.statusCode || 500;

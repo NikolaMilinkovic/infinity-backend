@@ -80,6 +80,12 @@ const {
   updateAllUsersWithNewFields,
   addExcelPermissions,
   addExcelPresetLastUpdatedAt,
+  addIsDeletedFieldToOrders,
+  addIsDeletedFieldToDresses,
+  addIsDeletedFieldToPurses,
+  addSessionsFieldToUsers,
+  addExcelFieldToCouriers,
+  addAppIconsToBoutiques,
 } = require('./utils/app_transition_data_updates/databaseUpdateMethods');
 // ========================[DONE]========================
 // createInitialBoutique();
@@ -98,6 +104,12 @@ const {
 // updateAllUsersWithNewFields();
 // addExcelPermissions();
 // addExcelPresetLastUpdatedAt();
+// addIsDeletedFieldToOrders();
+// addIsDeletedFieldToDresses();
+// addIsDeletedFieldToPurses();
+// addSessionsFieldToUsers();
+// addExcelFieldToCouriers();
+// addAppIconsToBoutiques();
 // ========================[DONE]========================
 
 ensureVersionDocument();

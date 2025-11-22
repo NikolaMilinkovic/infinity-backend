@@ -18,26 +18,26 @@ const { LastUpdated } = require('../schemas/lastUpdated');
 
 /**
  * Adds a user to the database if they do not already exist.
- * @param {String} username - The username for the new user.
+ * @param {String} email - The email for the new user.
  * @param {String} plainPassword - The plain text password for the new user.
  */
-async function addUserOnStartup(username, plainPassword) {
+async function addUserOnStartup(email, plainPassword) {
   try {
-    const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ email });
 
     if (!existingUser) {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(plainPassword, salt);
       const newUser = new User({
-        username,
+        email,
         password: hashedPassword,
       });
 
       await newUser.save();
 
-      console.log(`> User [${newUser.username}] created`);
+      console.log(`> User [${newUser.email}] created`);
     } else {
-      console.log(`> User [${username}] already exists`);
+      console.log(`> User [${email}] already exists`);
     }
   } catch (error) {
     betterErrorLog('> Error creating a user:', error);
@@ -209,6 +209,7 @@ async function validateLastUpdated(data, lastUpdated) {
  * - productDisplayCounterLastUpdatedAt
  * - processedOrdersForPeriodLastUpdatedAt
  * - orderLastUpdatedAt
+ * - excelPresetLastUpdatedAt
  * @returns {isUpdated: Boolean, newDate: Date | null}
  */
 async function updateLastUpdatedField(key, io, boutiqueId) {
@@ -227,7 +228,6 @@ async function updateLastUpdatedField(key, io, boutiqueId) {
       io.to(`boutique-${boutiqueId}`).emit('syncLastUpdated', document);
     }
 
-    betterConsoleLog('> Last updated:', document);
     return { isUpdated: true, newDate: date };
   } catch (error) {
     betterErrorLog(`There was an error updating the field ${key} of lastUpdated document`, error);

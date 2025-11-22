@@ -178,6 +178,7 @@ exports.getProcessedOrders = async (req, res, next) => {
       boutiqueId,
       // only orders in the last 30 days
       createdAt: { $gte: thirtyDaysAgo },
+      isDeleted: false,
     }).sort({ createdAt: -1 });
 
     res.status(200).json({ message: 'Procesovane porudžbine uspešno preuzete', orders });
@@ -191,7 +192,7 @@ exports.getProcessedOrders = async (req, res, next) => {
 exports.getUnprocessedOrders = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const orders = await Orders.find({ processed: false, boutiqueId }).sort({ createdAt: -1 });
+    const orders = await Orders.find({ processed: false, boutiqueId, isDeleted: false }).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Neprocesovane porudžbine uspešno preuzete', orders });
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -203,7 +204,9 @@ exports.getUnprocessedOrders = async (req, res, next) => {
 exports.getUnpackedOrders = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const orders = await Orders.find({ packed: false, packedIndicator: false, boutiqueId }).sort({ createdAt: -1 });
+    const orders = await Orders.find({ packed: false, packedIndicator: false, boutiqueId, isDeleted: false }).sort({
+      createdAt: -1,
+    });
     res.status(200).json({ message: 'Nespakovane porudžbine uspešno preuzete', orders });
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -281,6 +284,7 @@ exports.getOrdersByDate = async (req, res, next) => {
       },
       reservation: false,
       boutiqueId,
+      isDeleted: false,
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
@@ -320,6 +324,7 @@ exports.getOrdersForPeriodFromDate = async (req, res, next) => {
       },
       reservation: false,
       boutiqueId,
+      isDeleted: false,
     }).sort({ createdAt: -1 });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
@@ -370,6 +375,7 @@ exports.getReservationsByDate = async (req, res, next) => {
       reservationDate: queryDate,
       reservation: true,
       boutiqueId,
+      isDeleted: false,
     });
     const formattedDate = selectedDate.toLocaleDateString('sr-RS', {
       day: '2-digit',
@@ -738,8 +744,14 @@ exports.parseOrdersForLatestPeriod = async (req, res, next) => {
       );
       // uri & fileName
     }
-    // Get all orders that are active, not a reservation, and for specific courier
-    const orders = await Orders.find({ processed: false, reservation: false, boutiqueId, 'courier.name': courier });
+    // Get all orders that are active, not a reservation, not deleted, and for specific courier
+    const orders = await Orders.find({
+      processed: false,
+      reservation: false,
+      boutiqueId,
+      'courier.name': courier,
+      isDeleted: false,
+    });
     const totalSalesValue = getTotalSalesValue(orders);
     const averageOrderValue = getAverageOrderValue(totalSalesValue, orders.length);
     const salesPerStockType = getSalesPerStockType(orders);

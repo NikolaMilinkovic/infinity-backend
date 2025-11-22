@@ -105,7 +105,11 @@ async function removeOrderById(orderId, boutiqueId, req) {
     }
 
     // Delete the order
-    const deletedOrder = await Order.findOneAndDelete({ _id: orderId, boutiqueId }, { session });
+    const deletedOrder = await Order.findOneAndUpdate(
+      { _id: orderId, boutiqueId },
+      { $set: { isDeleted: true } },
+      { new: true, session }
+    );
 
     // Commit transaction
     await session.commitTransaction();
@@ -284,7 +288,11 @@ async function removeBatchOrdersById(orderIds, boutiqueId, req) {
     }
 
     // Delete orders
-    const deletedOrders = await Order.deleteMany({ _id: { $in: orderIds }, boutiqueId }, { session });
+    const deletedOrders = await Order.updateMany(
+      { _id: { $in: orderIds }, boutiqueId },
+      { $set: { isDeleted: true } },
+      { session }
+    );
 
     // Commit transaction
     await session.commitTransaction();

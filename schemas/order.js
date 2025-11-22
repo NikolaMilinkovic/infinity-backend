@@ -8,6 +8,10 @@ const OrderSchema = new Schema(
       ref: 'Boutique',
       required: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
     buyer: {
       name: { type: String, required: [true, 'Buyer name is required'] },
       address: { type: String, required: [true, 'Buyer address is required'] },
@@ -68,4 +72,5 @@ OrderSchema.index({ boutiqueId: 1, processed: 1 });
 OrderSchema.index({ boutiqueId: 1, packed: 1 });
 OrderSchema.index({ boutiqueId: 1, processed: 1, reservation: 1, 'courier.name': 1 });
 
+OrderSchema.index({ boutiqueId: 1, isDeleted: 1, createdAt: -1 });
 module.exports = mongoose.model('Order', OrderSchema);

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const Order = require('../../../schemas/order');
+const Order = require('../../schemas/order');
+
 async function calculateTotalSoldById(productId) {
   try {
     const orders = await Order.find({ 'products.itemReference': productId });

@@ -118,33 +118,62 @@ async function updatePurseActiveStatus(purseId, boutiqueId) {
   return purse;
 }
 
+// async function removePurseById(purseId, boutiqueId, req, next) {
+//   if (!purseId || !boutiqueId) {
+//     throw new Error(`Purse [${purseId}] or Boutique [${boutiqueId}] ID not provided `);
+//   }
+//   const purse = await Purse.findOne({ _id: purseId, boutiqueId }).populate('colors');
+//   if (!purse) {
+//     throw new Error('Purse not found for id ' + purseId);
+//   }
+
+//   // Delete all DressColors objects from DB
+//   for (const colorId of purse.colors) {
+//     await PurseColor.findByIdAndDelete(colorId);
+//   }
+
+//   // Delete the Purse object
+//   const deletedPurse = await Purse.findOneAndDelete({ _id: purseId, boutiqueId });
+//   if (!deletedPurse) {
+//     return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));
+//   }
+
+//   // SOCKET HANDLING
+//   const io = req.app.locals.io;
+//   if (io) {
+//     if (purse.active) {
+//       io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedPurse._id);
+//     } else {
+//       io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedPurse._id);
+//     }
+//   }
+
+//   return true;
+// }
+
 async function removePurseById(purseId, boutiqueId, req, next) {
   if (!purseId || !boutiqueId) {
-    throw new Error(`Purse [${purseId}] or Boutique [${boutiqueId}] ID not provided `);
-  }
-  const purse = await Purse.findOne({ _id: purseId, boutiqueId }).populate('colors');
-  if (!purse) {
-    throw new Error('Purse not found for id ' + purseId);
+    throw new Error(`Purse [${purseId}] or Boutique [${boutiqueId}] ID not provided`);
   }
 
-  // Delete all DressColors objects from DB
-  for (const colorId of purse.colors) {
-    await PurseColor.findByIdAndDelete(colorId);
-  }
+  // Update the isDeleted flag instead of deleting
+  const updatedPurse = await Purse.findOneAndUpdate(
+    { _id: purseId, boutiqueId },
+    { $set: { isDeleted: true } },
+    { new: true }
+  );
 
-  // Delete the Purse object
-  const deletedPurse = await Purse.findOneAndDelete({ _id: purseId, boutiqueId });
-  if (!deletedPurse) {
+  if (!updatedPurse) {
     return next(new CustomError(`Proizvod sa ID: ${purseId} nije pronađen`, 404));
   }
 
   // SOCKET HANDLING
   const io = req.app.locals.io;
   if (io) {
-    if (purse.active) {
-      io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedPurse._id);
+    if (updatedPurse.active) {
+      io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', updatedPurse._id);
     } else {
-      io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedPurse._id);
+      io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', updatedPurse._id);
     }
   }
 

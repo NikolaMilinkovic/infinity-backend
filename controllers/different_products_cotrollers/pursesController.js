@@ -105,7 +105,9 @@ exports.addPurse = async (req, res, next) => {
 exports.getAllActivePurses = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const purses = await Purse.find({ active: true, boutiqueId }).populate('colors').sort({ displayPriority: -1 });
+    const purses = await Purse.find({ active: true, boutiqueId, isDeleted: false })
+      .populate('colors')
+      .sort({ displayPriority: -1 });
     res.status(200).json(purses);
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -119,7 +121,9 @@ exports.getAllActivePurses = async (req, res, next) => {
 exports.getAllInactivePurses = async (req, res, next) => {
   try {
     const boutiqueId = getBoutiqueId(req);
-    const purses = await Purse.find({ active: false, boutiqueId }).populate('colors').sort({ _id: -1 });
+    const purses = await Purse.find({ active: false, boutiqueId, isDeleted: false })
+      .populate('colors')
+      .sort({ _id: -1 });
     res.status(200).json(purses);
   } catch (error) {
     const statusCode = error.statusCode || 500;

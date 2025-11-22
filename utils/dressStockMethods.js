@@ -101,7 +101,7 @@ async function dressBatchColorStockHandler(dressesArr, boutiqueId, operation, ne
     return true;
   } catch (error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error updating purse batch stock:', error);
+    betterErrorLog('> Error updating dress batch stock:', error);
     return next(new CustomError('Došlo je do problema prilikom ažuriranja stanja artikala', statusCode));
   }
 }
@@ -125,41 +125,75 @@ async function updateDressActiveStatus(dressId, boutiqueId) {
   return dress;
 }
 
+// async function removeDressById(dressId, boutiqueId, req, next) {
+//   try {
+//     if (!dressId || !boutiqueId) {
+//       throw new Error(`Purse [${dressId}] or Boutique [${boutiqueId}] ID not provided `);
+//     }
+//     const dress = await Dress.findOne({ _id: dressId, boutiqueId }).populate('colors');
+//     if (!dress) {
+//       throw new Error('Dress not found for id ' + dressId);
+//     }
+
+//     // Delete all DressColors objects from DB
+//     for (const colorId of dress.colors) {
+//       await DressColor.findByIdAndDelete(colorId);
+//     }
+
+//     // Delete the Dress object
+//     const deletedDress = await Dress.findOneAndDelete({ _id: dressId, boutiqueId });
+//     if (!deletedDress) {
+//       return next(new CustomError(`Proizvod sa ID: ${dressId} nije pronađen`, 404));
+//     }
+
+//     // SOCKET HANDLING
+//     const io = req.app.locals.io;
+//     if (io) {
+//       if (dress.active) {
+//         io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedDress._id);
+//       } else {
+//         io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedDress._id);
+//       }
+//     }
+
+//     return true;
+//   } catch (error) {
+//     const statusCode = error.statusCode || 500;
+//     betterErrorLog('> Error removing a dress via ID:', error);
+//     return next(new CustomError('Došlo je do problema prilikom brisanja haljine putem ID-a', statusCode));
+//   }
+// }
+
 async function removeDressById(dressId, boutiqueId, req, next) {
   try {
     if (!dressId || !boutiqueId) {
-      throw new Error(`Purse [${dressId}] or Boutique [${boutiqueId}] ID not provided `);
-    }
-    const dress = await Dress.findOne({ _id: dressId, boutiqueId }).populate('colors');
-    if (!dress) {
-      throw new Error('Dress not found for id ' + dressId);
+      throw new Error(`Dress [${dressId}] or Boutique [${boutiqueId}] ID not provided`);
     }
 
-    // Delete all DressColors objects from DB
-    for (const colorId of dress.colors) {
-      await DressColor.findByIdAndDelete(colorId);
-    }
-
-    // Delete the Dress object
-    const deletedDress = await Dress.findOneAndDelete({ _id: dressId, boutiqueId });
-    if (!deletedDress) {
+    // Update the Dress object to isDeleted = true
+    const updatedDress = await Dress.findOneAndUpdate(
+      { _id: dressId, boutiqueId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
+    if (!updatedDress) {
       return next(new CustomError(`Proizvod sa ID: ${dressId} nije pronađen`, 404));
     }
 
     // SOCKET HANDLING
     const io = req.app.locals.io;
     if (io) {
-      if (dress.active) {
-        io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', deletedDress._id);
+      if (updatedDress.active) {
+        io.to(`boutique-${boutiqueId}`).emit('activeProductRemoved', updatedDress._id);
       } else {
-        io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', deletedDress._id);
+        io.to(`boutique-${boutiqueId}`).emit('inactiveProductRemoved', updatedDress._id);
       }
     }
 
     return true;
   } catch (error) {
     const statusCode = error.statusCode || 500;
-    betterErrorLog('> Error removing a dress via ID:', error);
+    betterErrorLog('> Error updating dress via ID:', error);
     return next(new CustomError('Došlo je do problema prilikom brisanja haljine putem ID-a', statusCode));
   }
 }

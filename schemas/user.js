@@ -5,8 +5,13 @@ const UserSchema = new Schema(
   {
     username: {
       type: String,
-      required: [true, 'Please enter a valid username'],
-      unique: [true, 'Username already registered'],
+      required: false,
+      unique: false,
+    },
+    email: {
+      type: String,
+      required: [true, 'Please enter a valid email'],
+      unique: [true, 'This email is already registered'],
     },
     boutiqueId: {
       type: Schema.Types.ObjectId,
@@ -17,6 +22,16 @@ const UserSchema = new Schema(
     password: {
       type: String,
       required: [true, 'Please enter a valid password'],
+    },
+    sessions: {
+      mobile: {
+        token: { type: String, default: null },
+        deviceId: { type: String, default: null },
+      },
+      pc: {
+        token: { type: String, default: null },
+        deviceId: { type: String, default: null },
+      },
     },
     role: {
       type: String,
@@ -146,12 +161,12 @@ const UserSchema = new Schema(
         enableCroppingForBuyerImage: {
           type: Boolean,
           required: false,
-          default: true,
+          default: false,
         },
         useAspectRatioForBuyerImage: {
           type: Boolean,
           required: false,
-          default: true,
+          default: false,
         },
       },
     },

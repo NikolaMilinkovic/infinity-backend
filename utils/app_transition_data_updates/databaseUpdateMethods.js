@@ -316,6 +316,121 @@ async function addExcelPresetLastUpdatedAt() {
   }
 }
 
+async function addIsDeletedFieldToOrders() {
+  try {
+    console.log('🔄 Starting migration to add isDeleted field...');
+
+    const result = await Order.updateMany({ isDeleted: { $exists: false } }, { $set: { isDeleted: false } });
+
+    console.log(`> Orders matched: ${result.matchedCount}, modified: ${result.modifiedCount}`);
+    console.log('✅ Migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    throw error;
+  }
+}
+
+async function addIsDeletedFieldToDresses() {
+  try {
+    console.log('🔄 Starting migration to add isDeleted field to Dresses...');
+
+    const result = await Dress.updateMany({ isDeleted: { $exists: false } }, { $set: { isDeleted: false } });
+
+    console.log(`> Dresses matched: ${result.matchedCount}, modified: ${result.modifiedCount}`);
+    console.log('✅ Dresses migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Dresses migration failed:', error);
+    throw error;
+  }
+}
+
+async function addIsDeletedFieldToPurses() {
+  try {
+    console.log('🔄 Starting migration to add isDeleted field to Purses...');
+
+    const result = await Purse.updateMany({ isDeleted: { $exists: false } }, { $set: { isDeleted: false } });
+
+    console.log(`> Purses matched: ${result.matchedCount}, modified: ${result.modifiedCount}`);
+    console.log('✅ Purses migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Purses migration failed:', error);
+    throw error;
+  }
+}
+
+async function addSessionsFieldToUsers() {
+  try {
+    console.log('🔄 Starting migration to add sessions field to Users...');
+
+    const result = await User.updateMany(
+      { sessions: { $exists: false } },
+      {
+        $set: {
+          sessions: {
+            mobile: { token: null, deviceId: null },
+            pc: { token: null, deviceId: null },
+          },
+        },
+      }
+    );
+
+    console.log(`> Users matched: ${result.matchedCount}, modified: ${result.modifiedCount}`);
+    console.log('✅ Users migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Users migration failed:', error);
+    throw error;
+  }
+}
+
+async function addExcelFieldToCouriers() {
+  try {
+    console.log('🔄 Starting migration to add excelSchemaId field to Couriers...');
+
+    const result = await Courier.updateMany({ excelSchemaId: { $exists: false } }, { $set: { excelSchemaId: null } });
+
+    console.log(`> Couriers matched: ${result.matchedCount}, modified: ${result.modifiedCount}`);
+    console.log('✅ Couriers migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Couriers migration failed:', error);
+    throw error;
+  }
+}
+
+async function addAppIconsToBoutiques() {
+  try {
+    console.log(
+      '🔄 Starting migration to add appIcon_on_white_background and appIcon_on_black_background to Boutiques...'
+    );
+
+    const result = await Boutique.updateMany(
+      {
+        $or: [
+          { 'settings.appIcon_on_white_background': { $exists: false } },
+          { 'settings.appIcon_on_black_background': { $exists: false } },
+        ],
+      },
+      {
+        $set: {
+          'settings.appIcon_on_white_background': {
+            appIconUri: '',
+            appIconName: '',
+          },
+          'settings.appIcon_on_black_background': {
+            appIconUri: '',
+            appIconName: '',
+          },
+        },
+      }
+    );
+
+    console.log(`> Boutiques matched: ${result.matchedCount}, modified: ${result.modifiedCount}`);
+    console.log('✅ Boutique migration completed successfully!');
+  } catch (error) {
+    console.error('❌ Boutique migration failed:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   updateAllColorsWithBoutiqueId,
   updateAllCouriersWithBoutiqueId,
@@ -334,4 +449,10 @@ module.exports = {
   updateAllUsersWithNewFields,
   addExcelPermissions,
   addExcelPresetLastUpdatedAt,
+  addIsDeletedFieldToOrders,
+  addIsDeletedFieldToDresses,
+  addIsDeletedFieldToPurses,
+  addSessionsFieldToUsers,
+  addExcelFieldToCouriers,
+  addAppIconsToBoutiques,
 };

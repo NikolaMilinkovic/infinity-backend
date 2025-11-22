@@ -218,7 +218,7 @@ async function updateUserPermissions() {
       if (!user.permissions) user.permissions = {};
       mergeDefaults(user.permissions, defaultPermissions);
       await user.save();
-      console.log(`Updated permissions for user: ${user.username}`);
+      console.log(`Updated permissions for user: ${user.email}`);
     }
 
     console.log('✅ All permissions updated successfully');

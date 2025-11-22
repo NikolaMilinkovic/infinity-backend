@@ -1,4 +1,5 @@
 const Excel = require('../schemas/excellSchema');
+const Courier = require('../schemas/courier');
 const CustomError = require('../utils/CustomError');
 const { getBoutiqueId, updateLastUpdatedField } = require('../utils/helperMethods');
 const { betterConsoleLog, betterErrorLog } = require('../utils/logMethods');
@@ -35,11 +36,44 @@ exports.AddCourierExcelPreset = async (req, res, next) => {
   }
 };
 
+exports.UpdateCourierExcelPreset = async (req, res, next) => {
+  try {
+    const updatedExcelData = req.body;
+    const { id } = req.params;
+    const boutiqueId = getBoutiqueId(req);
+    const cleanColumns = updatedExcelData.columns.map((col) => {
+      const { temp_id, ...rest } = col;
+      return rest;
+    });
+    const excel = await Excel.findById(id);
+    if (!excel) {
+      return next(new CustomError('Excel šema nije pronađena', 404, req));
+    }
+
+    excel.name = updatedExcelData.name;
+    excel.isDefault = updatedExcelData.isDefault;
+    excel.columns = cleanColumns;
+    const updatedExcel = await excel.save();
+
+    // Update
+    const io = req.app.locals.io;
+    await updateLastUpdatedField('excelPresetLastUpdatedAt', io, boutiqueId);
+    io.to(`boutique-${boutiqueId}`).emit('updateExcelPreset', updatedExcel);
+    res.status(200).json({ message: 'Šablon uspešno ažuriran' });
+
+    await writeToLog(req, `[EXCEL] Updated an excel preset [${updatedExcel.name}] | _id [${updatedExcel._id}].`);
+  } catch (error) {
+    betterErrorLog('> Error updating an Excel preset', error);
+    return next(new CustomError('There was an error while updating new Excel preset', 500, req));
+  }
+};
+
 exports.RemoveCourierExcelPreset = async (req, res, next) => {
   try {
     const { id } = req.params;
     const boutiqueId = getBoutiqueId(req);
     const deletedExcelPreset = await Excel.findOneAndDelete({ _id: id, boutiqueId });
+    await Courier.updateMany({ boutiqueId, excelSchemaId: id }, { $set: { excelSchemaId: null } });
     if (!deletedExcelPreset) {
       return next(new CustomError(`Šablon sa ID: ${id} nije pronadjen`, 404, req, { id: req.params.id }));
     }
@@ -47,6 +81,7 @@ exports.RemoveCourierExcelPreset = async (req, res, next) => {
     const io = req.app.locals.io;
     if (io) {
       updateLastUpdatedField('excelPresetLastUpdatedAt', io, boutiqueId);
+      updateLastUpdatedField('courierLastUpdatedAt', io, boutiqueId);
       io.to(`boutique-${boutiqueId}`).emit('removeExcelPreset', deletedExcelPreset._id);
     }
 
